@@ -1,0 +1,97 @@
+GOOGLE SHEETS STRUCTURE FOR VAMAC VISUAL APP
+=============================================
+
+Sheet 1: "Branches"
+Columns:
+- A: BranchNumber (e.g., 5, 6, 7)
+- B: BranchName (e.g., "Petersburg", "Chesterfield", "Hanover")
+- C: Address (full address)
+- D: Phone (phone number)
+- E: Carrier (e.g., "STEFI")
+
+Sample Data:
+5 | Petersburg | 23323 BUSINESS CTR CT, RUTHER GLEN, VA 23546 | 804-321-3955 | STEFI
+6 | Chesterfield | [Address TBD] | [Phone TBD] | STEFI
+7 | Hanover | [Address TBD] | [Phone TBD] | STEFI
+
+
+Sheet 2: "Pickers"
+Columns:
+- A: PickerID (e.g., 1001, 1002)
+- B: PickerName (e.g., "Taylor", "John Smith")
+
+Sample Data:
+1001 | Taylor
+1002 | John Smith
+
+
+Sheet 3: "BayAssignments"
+Columns:
+- A: BayNumber (1-5)
+- B: BranchNumbers (comma-separated list of branch numbers assigned to this bay, or empty if no assignment)
+  Example: "5,6" means both Branch 5 and Branch 6 are assigned to this bay
+- C: LastUpdated (timestamp)
+
+Sample Data:
+1 | 5,6 | 2025-11-05 10:30:00
+2 | 7 | 2025-11-05 10:30:00
+3 | | 2025-11-05 10:30:00
+4 | | 
+5 | |
+
+
+Sheet 4: "StageRecords"
+Columns:
+- A: Timestamp (date and time)
+- B: PickerID
+- C: PickerName
+- D: BranchNumber
+- E: BranchName
+- F: Pallets (number)
+- G: Boxes (number)
+- H: Rolls (number)
+- I: Date (date only for filtering)
+- J: Fiberglass (number) - Advanced field
+- K: WaterHeaters (number) - Advanced field
+- L: WaterRights (number) - Advanced field
+- M: BoxTub (number) - Advanced field
+- N: CopperPipe (number) - Advanced field
+- O: PlasticPipe (number) - Advanced field
+- P: GALVPipe (number) - Advanced field
+- Q: BlackPipe (number) - Advanced field
+- R: Wood (number) - Advanced field
+- S: GalvSTRUT (number) - Advanced field
+- T: IM540TANK (number) - Advanced field
+- U: IM1250TANK (number) - Advanced field
+- V: MailBox (number) - Advanced field
+
+Sample Data:
+2025-11-05 08:30:00 | 1001 | Taylor | 5 | Petersburg | 3 | 10 | 2 | 2025-11-05 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0
+
+Note: Advanced fields (J-V) are optional. Set to 0 if not used.
+
+
+Sheet 5: "Config"
+Columns:
+- A: Key
+- B: Value
+
+Sample Data:
+AdminPIN | 423323
+CompanyName | VAMAC CARMEL CHURCH - BR4
+CompanyAddress | 23323 BUSINESS CTR CT, RUTHER GLEN, VA 23546
+CompanyPhone | 804-321-3955
+
+
+SETUP INSTRUCTIONS:
+1. Create a new Google Sheets spreadsheet
+2. Create 5 sheets with the names above
+3. Add the column headers (row 1) for each sheet
+4. Add the sample data starting from row 2
+5. In Google Sheets, go to Extensions > Apps Script
+6. Delete any default code and paste the contents from code.gs
+7. Deploy as Web App (Execute as: Me, Access: Anyone)
+8. Copy the deployment URL
+9. Create a .env.local file in your project root with:
+   NEXT_PUBLIC_APPS_SCRIPT_URL=your_deployment_url_here
+
