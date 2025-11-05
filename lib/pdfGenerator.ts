@@ -43,14 +43,14 @@ export function generateDailySummaryPDF(exportData: PDFExportData) {
   const shipDate = calculateShipDate(date);
   
   // Left side - Company Info
-  doc.setFontSize(10);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.text('VAMAC CARMEL CHURCH - BR4', 15, 15);
-  doc.setFontSize(9);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.text('23323 BUSINESS CTR CT', 15, 20);
-  doc.text('RUTHER GLEN, VA 23546', 15, 24);
-  doc.text('804-321-3955', 15, 28);
+  doc.text('23323 BUSINESS CTR CT', 15, 19);
+  doc.text('RUTHER GLEN, VA 23546', 15, 23);
+  doc.text('804-321-3955', 15, 27);
   
   // Center - Main Title
   doc.setFontSize(18);

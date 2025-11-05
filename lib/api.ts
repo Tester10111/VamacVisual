@@ -2,6 +2,17 @@
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || '';
 
+// Validate API URL on initialization
+if (typeof window !== 'undefined' && !APPS_SCRIPT_URL) {
+  console.error('❌ NEXT_PUBLIC_APPS_SCRIPT_URL is not set! Please configure it in your environment variables.');
+  console.error('See VERCEL_SETUP.md for instructions.');
+}
+
+if (typeof window !== 'undefined' && APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith('http')) {
+  console.error('❌ NEXT_PUBLIC_APPS_SCRIPT_URL must be a valid URL starting with http or https.');
+  console.error('Current value:', APPS_SCRIPT_URL);
+}
+
 // Utility to get current date in Eastern Time
 export function getEasternTimeDate(): string {
   const now = new Date();
@@ -67,6 +78,15 @@ export interface BayAssignments {
 }
 
 async function fetchFromAppsScript(action: string, params: Record<string, any> = {}) {
+  // Validate API URL before making request
+  if (!APPS_SCRIPT_URL) {
+    throw new Error('NEXT_PUBLIC_APPS_SCRIPT_URL environment variable is not set. Please configure it in your Vercel project settings or .env.local file. See VERCEL_SETUP.md for instructions.');
+  }
+
+  if (!APPS_SCRIPT_URL.startsWith('http')) {
+    throw new Error(`Invalid NEXT_PUBLIC_APPS_SCRIPT_URL: "${APPS_SCRIPT_URL}". It must be a valid URL starting with http or https.`);
+  }
+
   const url = new URL(APPS_SCRIPT_URL);
   url.searchParams.append('action', action);
   
