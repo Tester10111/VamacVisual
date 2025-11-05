@@ -43,7 +43,7 @@ export function generateDailySummaryPDF(exportData: PDFExportData) {
   const shipDate = calculateShipDate(date);
   
   // Left side - Company Info
-  doc.setFontSize(8);
+  doc.setFontSize(6);
   doc.setFont('helvetica', 'bold');
   doc.text('VAMAC CARMEL CHURCH - BR4', 15, 15);
   doc.setFontSize(7);
