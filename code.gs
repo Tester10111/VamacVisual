@@ -263,7 +263,8 @@ function getStageRecords(date) {
         galvStrut: data[i][18] || 0,
         im540Tank: data[i][19] || 0,
         im1250Tank: data[i][20] || 0,
-        mailBox: data[i][21] || 0
+        mailBox: data[i][21] || 0,
+        custom: data[i][22] || ''
       });
     } else {
       Logger.log('Row ' + i + ' - No match (recordDate: "' + recordDate + '" !== filterDate: "' + filterDate + '")');
@@ -318,7 +319,8 @@ function addStageRecord(record) {
     record.galvStrut || 0,
     record.im540Tank || 0,
     record.im1250Tank || 0,
-    record.mailBox || 0
+    record.mailBox || 0,
+    record.custom || ''
   ]);
   
   return { success: true };
@@ -388,7 +390,8 @@ function getDailySummary(date) {
         galvStrut: 0,
         im540Tank: 0,
         im1250Tank: 0,
-        mailBox: 0
+        mailBox: 0,
+        custom: ''
       };
     }
   }
@@ -451,18 +454,28 @@ function getDailySummary(date) {
         branchMap[branchNumber].im540Tank += recordsData[i][19] || 0;
         branchMap[branchNumber].im1250Tank += recordsData[i][20] || 0;
         branchMap[branchNumber].mailBox += recordsData[i][21] || 0;
+        
+        // Aggregate custom items (combine comma-separated strings)
+        const customData = recordsData[i][22] || '';
+        if (customData && customData.trim()) {
+          if (branchMap[branchNumber].custom) {
+            branchMap[branchNumber].custom += ',' + customData;
+          } else {
+            branchMap[branchNumber].custom = customData;
+          }
+        }
       }
     }
   }
   
-  // Convert to array and filter out branches with no shipments (including advanced fields)
+  // Convert to array and filter out branches with no shipments (including advanced fields and custom items)
   const summary = Object.values(branchMap).filter(branch => 
     branch.pallets > 0 || branch.boxes > 0 || branch.rolls > 0 ||
     branch.fiberglass > 0 || branch.waterHeaters > 0 || branch.waterRights > 0 ||
     branch.boxTub > 0 || branch.copperPipe > 0 || branch.plasticPipe > 0 ||
     branch.galvPipe > 0 || branch.blackPipe > 0 || branch.wood > 0 ||
     branch.galvStrut > 0 || branch.im540Tank > 0 || branch.im1250Tank > 0 ||
-    branch.mailBox > 0
+    branch.mailBox > 0 || (branch.custom && branch.custom.trim())
   );
   
   return { success: true, data: summary, date: filterDate };

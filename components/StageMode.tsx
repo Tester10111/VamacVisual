@@ -36,6 +36,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
   const [im540Tank, setIm540Tank] = useState('');
   const [im1250Tank, setIm1250Tank] = useState('');
   const [mailBox, setMailBox] = useState('');
+  const [customItems, setCustomItems] = useState<Array<{ name: string; quantity: string }>>([{ name: '', quantity: '' }]);
 
   // Refs for focus management
   const branchInputRef = useRef<HTMLInputElement>(null);
@@ -130,13 +131,19 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     const boxesNum = parseInt(boxes) || 0;
     const rollsNum = parseInt(rolls) || 0;
 
+    // Format custom items
+    const customItemsStr = customItems
+      .filter(item => item.name.trim() && item.quantity.trim())
+      .map(item => `${item.name.trim()}:${item.quantity.trim()}`)
+      .join(',');
+
     // Check if at least one quantity is entered
     const hasQuantity = palletsNum > 0 || boxesNum > 0 || rollsNum > 0 ||
       parseInt(fiberglass) > 0 || parseInt(waterHeaters) > 0 || parseInt(waterRights) > 0 ||
       parseInt(boxTub) > 0 || parseInt(copperPipe) > 0 || parseInt(plasticPipe) > 0 ||
       parseInt(galvPipe) > 0 || parseInt(blackPipe) > 0 || parseInt(wood) > 0 ||
       parseInt(galvStrut) > 0 || parseInt(im540Tank) > 0 || parseInt(im1250Tank) > 0 ||
-      parseInt(mailBox) > 0;
+      parseInt(mailBox) > 0 || customItemsStr.length > 0;
 
     if (!hasQuantity) {
       toast.error('Please enter at least one quantity');
@@ -168,6 +175,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
         im540Tank: parseInt(im540Tank) || 0,
         im1250Tank: parseInt(im1250Tank) || 0,
         mailBox: parseInt(mailBox) || 0,
+        custom: customItemsStr,
       });
 
       // Show success message
@@ -195,6 +203,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       setIm540Tank('');
       setIm1250Tank('');
       setMailBox('');
+      setCustomItems([{ name: '', quantity: '' }]);
       
       // Focus back on picker ID for next entry
       setTimeout(() => {
@@ -490,6 +499,65 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                 </div>
               )}
             </div>
+
+            {/* Custom Items Section */}
+            {showAdvanced && (
+              <div className="mb-6 p-4 bg-purple-50 rounded-xl border-2 border-purple-200 animate-slideDown">
+                <h5 className="font-semibold text-sm mb-3 text-purple-900">Custom Items</h5>
+                <div className="space-y-2">
+                  {customItems.map((item, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={(e) => {
+                          const newItems = [...customItems];
+                          newItems[index] = { ...newItems[index], name: e.target.value };
+                          setCustomItems(newItems);
+                        }}
+                        placeholder="Item name"
+                        className="input-field flex-1 text-sm"
+                        disabled={!selectedBranch}
+                      />
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const newItems = [...customItems];
+                          newItems[index] = { ...newItems[index], quantity: e.target.value };
+                          setCustomItems(newItems);
+                        }}
+                        placeholder="Qty"
+                        className="input-field w-20 text-sm text-center"
+                        min="0"
+                        disabled={!selectedBranch}
+                      />
+                      {customItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newItems = customItems.filter((_, i) => i !== index);
+                            setCustomItems(newItems.length > 0 ? newItems : [{ name: '', quantity: '' }]);
+                          }}
+                          className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                          disabled={!selectedBranch}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setCustomItems([...customItems, { name: '', quantity: '' }])}
+                    className="w-full py-2 bg-purple-200 text-purple-800 rounded hover:bg-purple-300 text-sm font-semibold"
+                    disabled={!selectedBranch}
+                  >
+                    + Add Custom Item
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button

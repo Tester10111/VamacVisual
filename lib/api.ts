@@ -71,6 +71,7 @@ export interface StageRecord {
   im540Tank?: number;
   im1250Tank?: number;
   mailBox?: number;
+  custom?: string; // Format: "Item1:Quantity1,Item2:Quantity2"
 }
 
 export interface BayAssignments {

@@ -4,6 +4,88 @@ import { useState, useEffect } from 'react';
 import { SummaryBranch, PDFExportData, generateDailySummaryPDF } from '@/lib/pdfGenerator';
 import { getEasternTimeDate } from '@/lib/api';
 
+// Custom Items Editor Component
+interface CustomItemsEditorProps {
+  items: Array<{ name: string; quantity: string }>;
+  onChange: (items: Array<{ name: string; quantity: string }>) => void;
+}
+
+function CustomItemsEditor({ items, onChange }: CustomItemsEditorProps) {
+  const [localItems, setLocalItems] = useState<Array<{ name: string; quantity: string }>>(
+    items.length > 0 ? items : [{ name: '', quantity: '' }]
+  );
+
+  // Sync with prop changes
+  useEffect(() => {
+    if (items.length > 0) {
+      setLocalItems(items);
+    } else if (localItems.length === 0 || localItems.every(item => !item.name && !item.quantity)) {
+      setLocalItems([{ name: '', quantity: '' }]);
+    }
+  }, [items]);
+
+  const updateItems = (newItems: Array<{ name: string; quantity: string }>) => {
+    setLocalItems(newItems);
+    onChange(newItems);
+  };
+
+  const addItem = () => {
+    updateItems([...localItems, { name: '', quantity: '' }]);
+  };
+
+  const removeItem = (index: number) => {
+    const newItems = localItems.filter((_, i) => i !== index);
+    if (newItems.length === 0) {
+      newItems.push({ name: '', quantity: '' });
+    }
+    updateItems(newItems);
+  };
+
+  const updateItem = (index: number, field: 'name' | 'quantity', value: string) => {
+    const newItems = [...localItems];
+    newItems[index] = { ...newItems[index], [field]: value };
+    updateItems(newItems);
+  };
+
+  return (
+    <div className="space-y-2">
+      {localItems.map((item, index) => (
+        <div key={index} className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={item.name}
+            onChange={(e) => updateItem(index, 'name', e.target.value)}
+            placeholder="Item name"
+            className="input-field flex-1 text-sm"
+          />
+          <input
+            type="number"
+            value={item.quantity}
+            onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+            placeholder="Qty"
+            className="input-field w-20 text-sm"
+            min="0"
+          />
+          <button
+            type="button"
+            onClick={() => removeItem(index)}
+            className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addItem}
+        className="w-full py-2 bg-purple-200 text-purple-800 rounded hover:bg-purple-300 text-sm font-semibold"
+      >
+        + Add Custom Item
+      </button>
+    </div>
+  );
+}
+
 interface PDFPreviewModalProps {
   initialData: SummaryBranch[];
   date: string;
@@ -14,6 +96,26 @@ export default function PDFPreviewModal({ initialData, date, onClose }: PDFPrevi
   const [branches, setBranches] = useState<SummaryBranch[]>(initialData);
   const [shippedBy, setShippedBy] = useState('Taylor');
   const [carrier, setCarrier] = useState('STEFI');
+  
+  // Helper function to parse custom items string into array
+  const parseCustomItems = (customStr: string | undefined): Array<{ name: string; quantity: string }> => {
+    if (!customStr || !customStr.trim()) return [];
+    return customStr.split(',').map(item => {
+      const parts = item.split(':');
+      return {
+        name: parts[0]?.trim() || '',
+        quantity: parts[1]?.trim() || ''
+      };
+    }).filter(item => item.name || item.quantity);
+  };
+  
+  // Helper function to format custom items array back to string
+  const formatCustomItems = (items: Array<{ name: string; quantity: string }>): string => {
+    return items
+      .filter(item => item.name.trim() && item.quantity.trim())
+      .map(item => `${item.name.trim()}:${item.quantity.trim()}`)
+      .join(',');
+  };
 
   // Calculate total pallet spaces
   const totalPalletSpaces = branches.reduce((sum, b) => sum + b.pallets, 0);
@@ -261,6 +363,15 @@ export default function PDFPreviewModal({ initialData, date, onClose }: PDFPrevi
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Custom Items Section */}
+                <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <h5 className="font-semibold text-sm mb-3">Custom Items</h5>
+                  <CustomItemsEditor
+                    items={parseCustomItems(branch.custom)}
+                    onChange={(items) => handleBranchUpdate(index, 'custom', formatCustomItems(items))}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">

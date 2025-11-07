@@ -28,6 +28,7 @@ export interface SummaryBranch {
   im540Tank?: number;
   im1250Tank?: number;
   mailBox?: number;
+  custom?: string; // Format: "Item1:Quantity1,Item2:Quantity2"
 }
 
 export interface PDFExportData {
@@ -169,6 +170,20 @@ export function generateDailySummaryPDF(exportData: PDFExportData) {
     if (branch.mailBox && branch.mailBox > 0) {
       doc.text(`Mail Box: ${branch.mailBox}`, 20, yPosition);
       yPosition += 5;
+    }
+    
+    // Custom items
+    if (branch.custom && branch.custom.trim()) {
+      const customItems = branch.custom.split(',').filter(item => item.trim());
+      customItems.forEach(item => {
+        const parts = item.split(':');
+        if (parts.length === 2) {
+          const itemName = parts[0].trim();
+          const quantity = parts[1].trim();
+          doc.text(`${itemName}: ${quantity}`, 20, yPosition);
+          yPosition += 5;
+        }
+      });
     }
     
     yPosition += 2;
