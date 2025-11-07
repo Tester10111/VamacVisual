@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { SummaryBranch, PDFExportData, generateDailySummaryPDF } from '@/lib/pdfGenerator';
+import { ExcelExportBranch, ExcelExportData, generateDailySummaryExcel } from '@/lib/excelGenerator';
 import { getEasternTimeDate } from '@/lib/api';
 
 // Custom Items Editor Component
@@ -126,9 +128,9 @@ export default function PDFPreviewModal({ initialData, date, onClose }: PDFPrevi
     setBranches(updated);
   };
 
-  const handleExport = () => {
+  const handleExportPDF = () => {
     if (!shippedBy.trim()) {
-      alert('Please enter who shipped this order');
+      toast.error('Please enter who shipped this order');
       return;
     }
 
@@ -140,6 +142,45 @@ export default function PDFPreviewModal({ initialData, date, onClose }: PDFPrevi
     };
 
     generateDailySummaryPDF(exportData);
+    toast.success('PDF exported successfully!');
+    onClose();
+  };
+
+  const handleExportExcel = () => {
+    if (!shippedBy.trim()) {
+      toast.error('Please enter who shipped this order');
+      return;
+    }
+
+    const exportData: ExcelExportData = {
+      branches: branches.map(b => ({
+        branchNumber: b.branchNumber,
+        branchName: b.branchName,
+        pallets: b.pallets,
+        boxes: b.boxes,
+        rolls: b.rolls,
+        fiberglass: b.fiberglass,
+        waterHeaters: b.waterHeaters,
+        waterRights: b.waterRights,
+        boxTub: b.boxTub,
+        copperPipe: b.copperPipe,
+        plasticPipe: b.plasticPipe,
+        galvPipe: b.galvPipe,
+        blackPipe: b.blackPipe,
+        wood: b.wood,
+        galvStrut: b.galvStrut,
+        im540Tank: b.im540Tank,
+        im1250Tank: b.im1250Tank,
+        mailBox: b.mailBox,
+        custom: b.custom,
+      })),
+      date: new Date(date + 'T00:00:00'),
+      shippedBy,
+      carrier,
+    };
+
+    generateDailySummaryExcel(exportData);
+    toast.success('Excel file exported successfully!');
     onClose();
   };
 
@@ -418,7 +459,14 @@ export default function PDFPreviewModal({ initialData, date, onClose }: PDFPrevi
             Cancel
           </button>
           <button
-            onClick={handleExport}
+            onClick={handleExportExcel}
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!shippedBy.trim()}
+          >
+            📊 Generate Excel
+          </button>
+          <button
+            onClick={handleExportPDF}
             className="btn-primary px-8"
             disabled={!shippedBy.trim()}
           >

@@ -336,7 +336,7 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
           <h1 className="text-4xl font-bold text-gray-800">Admin Mode - Bay Management</h1>
           <div className="flex gap-4">
             <button onClick={() => setShowPickerManagement(true)} className="btn-secondary">
-              👥 Edit Pickers
+               Edit Pickers
             </button>
             <button 
               onClick={() => setShowHistory(true)} 
@@ -348,7 +348,7 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
               onClick={openExportModal} 
               className="btn-primary hover:scale-105 transition-transform"
             >
-              📄 Export PDF
+              📄 Export as PDF/Excel
             </button>
             <button onClick={handleClearBoard} className="btn-danger">
               Clear Board
