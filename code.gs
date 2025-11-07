@@ -104,7 +104,7 @@ function getPickers() {
     if (data[i][0]) {
       pickers.push({
         pickerID: data[i][0],
-        pickerName: data[i][1]
+        pickerName: data[i][1] || ''
       });
     }
   }

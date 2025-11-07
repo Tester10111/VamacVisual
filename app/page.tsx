@@ -5,6 +5,7 @@ import ViewMode from '@/components/ViewMode';
 import AdminMode from '@/components/AdminMode';
 import StageMode from '@/components/StageMode';
 import { getBranches, getPickers, getBayAssignments, Branch, Picker, BayAssignments } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 type Mode = 'select' | 'view' | 'admin' | 'stage';
 
@@ -14,14 +15,20 @@ export default function Home() {
   const [pickers, setPickers] = useState<Picker[]>([]);
   const [bayAssignments, setBayAssignments] = useState<BayAssignments>({});
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      
       const [branchesData, pickersData, assignmentsData] = await Promise.all([
         getBranches(),
         getPickers(),
@@ -32,14 +39,28 @@ export default function Home() {
       setBayAssignments(assignmentsData);
     } catch (error) {
       console.error('Error loading data:', error);
-      alert('Error loading data. Please check your Google Sheets connection.');
+      
+      // For View Mode, silently retry instead of showing error
+      if (mode === 'view' && isRefresh) {
+        // Silently retry after 5 seconds
+        setTimeout(() => loadData(true), 5000);
+      } else if (mode !== 'view') {
+        // For other modes, show error
+        toast.error('Error loading data. Please check your connection.');
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   const refreshData = () => {
-    loadData();
+    // For View Mode, do silent refresh
+    if (mode === 'view') {
+      loadData(true);
+    } else {
+      loadData();
+    }
   };
 
   if (loading) {

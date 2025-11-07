@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Branch, Picker, addStageRecord } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface StageModeProps {
   branches: Branch[];
@@ -56,8 +57,9 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       // Focus branch input after picker is found
       setTimeout(() => branchInputRef.current?.focus(), 100);
     } else {
-      alert('Picker ID not found. Please contact an administrator.');
+      toast.error('Picker ID not found. Please contact an administrator.');
       setPickerName('');
+      setPickerID(''); // Clear the invalid ID to prevent loop
     }
   };
 
@@ -115,12 +117,12 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     if (isSubmitting) return; // Prevent double submission
 
     if (!pickerName) {
-      alert('Please enter a valid Picker ID');
+      toast.error('Please enter a valid Picker ID');
       return;
     }
 
     if (!selectedBranch) {
-      alert('Please select a valid branch');
+      toast.error('Please select a valid branch');
       return;
     }
 
@@ -137,7 +139,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       parseInt(mailBox) > 0;
 
     if (!hasQuantity) {
-      alert('Please enter at least one quantity');
+      toast.error('Please enter at least one quantity');
       return;
     }
 
@@ -169,7 +171,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       });
 
       // Show success message
-      alert('✅ Stage record added successfully!');
+      toast.success('Stage record added successfully!');
       
       // Reset form
       setPickerID('');
@@ -202,7 +204,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       
       onSave();
     } catch (error) {
-      alert('❌ Error adding stage record. Please try again.');
+      toast.error('Error adding stage record. Please try again.');
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -243,7 +245,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
               />
               {pickerName && (
                 <div className="mt-3 p-4 bg-green-100 border-2 border-green-500 rounded-lg">
-                  <div className="text-green-800 font-semibold text-lg">Welcome, {pickerName}!</div>
+                  <div className="text-green-800 font-semibold text-lg">Great work picking, {pickerName}!</div>
                 </div>
               )}
             </div>

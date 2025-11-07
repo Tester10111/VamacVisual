@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Branch, BayAssignments } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface ViewModeProps {
   branches: Branch[];
@@ -20,6 +21,7 @@ export default function ViewMode({ branches, bayAssignments, onExit, onRefresh }
 
     // Auto-refresh data every 30 seconds
     const refreshTimer = setInterval(() => {
+      toast.loading('Refreshing...', { duration: 1000 });
       onRefresh();
     }, 30000);
 

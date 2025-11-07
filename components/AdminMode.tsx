@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
-import { Branch, BayAssignments, updateBayAssignments, verifyPin, verifyPinLocal, clearBoard, getDailySummary, addPicker } from '@/lib/api';
+import { Branch, BayAssignments, updateBayAssignments, verifyPin, verifyPinLocal, clearBoard, getDailySummary } from '@/lib/api';
 import { SummaryBranch } from '@/lib/pdfGenerator';
 import HistoryView from './HistoryView';
 import PDFPreviewModal from './PDFPreviewModal';
+import PickerManagement from './PickerManagement';
+import toast from 'react-hot-toast';
 
 interface AdminModeProps {
   branches: Branch[];
@@ -90,13 +92,12 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
   const [activeBranch, setActiveBranch] = useState<Branch | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showNewPicker, setShowNewPicker] = useState(false);
-  const [newPickerID, setNewPickerID] = useState('');
-  const [newPickerName, setNewPickerName] = useState('');
+  const [showPickerManagement, setShowPickerManagement] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportDate, setExportDate] = useState('');
   const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [pdfData, setPdfData] = useState<SummaryBranch[]>([]);
+  const [isLoadingPDF, setIsLoadingPDF] = useState(false);
 
   // Check localStorage for cached admin access
   useEffect(() => {
@@ -127,7 +128,7 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
     try {
       // Quick local check first
       if (!verifyPinLocal(pin)) {
-        alert('Invalid PIN');
+        toast.error('Invalid PIN');
         setPin('');
         return;
       }
@@ -137,12 +138,13 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
       if (isValid) {
         setIsAuthenticated(true);
         localStorage.setItem('vamac_admin_authenticated', 'true');
+        toast.success('Access granted');
       } else {
-        alert('Invalid PIN');
+        toast.error('Invalid PIN');
         setPin('');
       }
     } catch (error) {
-      alert('Error verifying PIN');
+      toast.error('Error verifying PIN');
       setPin('');
     }
   };
@@ -208,10 +210,10 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
     try {
       setSaving(true);
       await updateBayAssignments(currentAssignments);
-      alert('Bay assignments saved successfully!');
+      toast.success('Bay assignments saved successfully!');
       onSave();
     } catch (error) {
-      alert('Error saving assignments');
+      toast.error('Error saving assignments');
     } finally {
       setSaving(false);
     }
@@ -225,10 +227,10 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
     try {
       await clearBoard();
       setCurrentAssignments({ 1: null, 2: null, 3: null, 4: null, 5: null });
-      alert('Board cleared successfully!');
+      toast.success('Board cleared successfully!');
       onSave();
     } catch (error) {
-      alert('Error clearing board');
+      toast.error('Error clearing board');
     }
   };
 
@@ -237,14 +239,16 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
       const dateToExport = selectedDate || exportDate;
       
       if (!dateToExport) {
-        alert('Please select a date to export');
+        toast.error('Please select a date to export');
         return;
       }
 
+      setIsLoadingPDF(true);
       const result = await getDailySummary(dateToExport);
       
       if (result.data.length === 0) {
-        alert('No shipments recorded for the selected date.');
+        toast.error('No shipments recorded for the selected date.');
+        setIsLoadingPDF(false);
         return;
       }
 
@@ -253,8 +257,10 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
       setShowExportModal(false);
       setShowPDFPreview(true);
     } catch (error) {
-      alert('Error loading export data');
+      toast.error('Error loading export data');
       console.error(error);
+    } finally {
+      setIsLoadingPDF(false);
     }
   };
 
@@ -270,27 +276,7 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
     setIsAuthenticated(false);
     localStorage.removeItem('vamac_admin_authenticated');
     setPin('');
-  };
-
-  const handleAddNewPicker = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPickerID || !newPickerName) {
-      alert('Please fill in all fields');
-      return;
-    }
-    try {
-      await addPicker({
-        pickerID: parseInt(newPickerID),
-        pickerName: newPickerName,
-      });
-      alert('Picker added successfully!');
-      setShowNewPicker(false);
-      setNewPickerID('');
-      setNewPickerName('');
-      onSave();
-    } catch (error) {
-      alert('Error adding picker');
-    }
+    toast.success('Logged out successfully');
   };
 
   const getBranchesForBay = (bayNumber: number): Branch[] => {
@@ -349,8 +335,8 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800">Admin Mode - Bay Management</h1>
           <div className="flex gap-4">
-            <button onClick={() => setShowNewPicker(true)} className="btn-secondary">
-              Add Picker
+            <button onClick={() => setShowPickerManagement(true)} className="btn-secondary">
+              👥 Edit Pickers
             </button>
             <button 
               onClick={() => setShowHistory(true)} 
@@ -449,13 +435,25 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
             <div className="flex gap-4">
               <button 
                 onClick={() => handleExportPDF()} 
-                className="btn-primary flex-1"
+                disabled={isLoadingPDF}
+                className="btn-primary flex-1 flex items-center justify-center gap-2"
               >
-                Continue to Preview
+                {isLoadingPDF ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Loading Preview...</span>
+                  </>
+                ) : (
+                  'Continue to Preview'
+                )}
               </button>
               <button
                 type="button"
-                onClick={() => setShowExportModal(false)}
+                onClick={() => {
+                  setShowExportModal(false);
+                  setIsLoadingPDF(false);
+                }}
+                disabled={isLoadingPDF}
                 className="btn-secondary flex-1"
               >
                 Cancel
@@ -477,53 +475,12 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
         />
       )}
 
-      {/* New Picker Modal */}
-      {showNewPicker && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 animate-slideUp">
-            <h2 className="text-2xl font-bold mb-6">👤 Add New Picker</h2>
-            <form onSubmit={handleAddNewPicker}>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2 font-semibold">Picker ID</label>
-                <input
-                  type="number"
-                  value={newPickerID}
-                  onChange={(e) => setNewPickerID(e.target.value)}
-                  className="input-field w-full"
-                  placeholder="Enter ID"
-                  required
-                />
-              </div>
-              <div className="mb-6">
-                <label className="block text-gray-700 mb-2 font-semibold">Picker Name</label>
-                <input
-                  type="text"
-                  value={newPickerName}
-                  onChange={(e) => setNewPickerName(e.target.value)}
-                  className="input-field w-full"
-                  placeholder="Enter name"
-                  required
-                />
-              </div>
-              <div className="flex gap-4">
-                <button type="submit" className="btn-primary flex-1">
-                  Add Picker
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewPicker(false);
-                    setNewPickerID('');
-                    setNewPickerName('');
-                  }}
-                  className="btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Picker Management Modal */}
+      {showPickerManagement && (
+        <PickerManagement
+          onClose={() => setShowPickerManagement(false)}
+          onSave={onSave}
+        />
       )}
     </div>
   );

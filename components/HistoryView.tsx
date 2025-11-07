@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Branch, StageRecord, getStageRecords, deleteStageRecord } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface HistoryViewProps {
   branches: Branch[];
@@ -32,7 +33,7 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
       setRecords(data);
     } catch (error) {
       console.error('Error loading records:', error);
-      alert('Error loading history: ' + error);
+      toast.error('Error loading history');
     } finally {
       setLoading(false);
     }
@@ -45,10 +46,10 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
 
     try {
       await deleteStageRecord(index);
-      alert('✅ Record deleted successfully!');
+      toast.success('Record deleted successfully!');
       loadRecords(); // Reload records
     } catch (error) {
-      alert('❌ Error deleting record. Please try again.');
+      toast.error('Error deleting record. Please try again.');
       console.error(error);
     }
   };
@@ -94,6 +95,23 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
                 className="input-field"
               />
             </div>
+            <button 
+              onClick={loadRecords} 
+              disabled={loading}
+              className="btn-secondary flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Loading...</span>
+                </>
+              ) : (
+                <>
+                  <span>🔄</span>
+                  <span>Refresh</span>
+                </>
+              )}
+            </button>
             <button onClick={onBack} className="btn-secondary">
               Back to Admin
             </button>
