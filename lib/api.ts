@@ -78,6 +78,42 @@ export interface BayAssignments {
   [bayNumber: number]: number[] | number | null;
 }
 
+export interface Truck {
+  truckID: number;
+  truckName: string;
+  createDate: string;
+  createTimestamp: Date | string;
+  status: string;
+}
+
+export interface StagingItem {
+  branchNumber: number;
+  branchName: string;
+  pickDate: string;
+  pallets: number;
+  boxes: number;
+  rolls: number;
+  fiberglass?: number;
+  waterHeaters?: number;
+  waterRights?: number;
+  boxTub?: number;
+  copperPipe?: number;
+  plasticPipe?: number;
+  galvPipe?: number;
+  blackPipe?: number;
+  wood?: number;
+  galvStrut?: number;
+  im540Tank?: number;
+  im1250Tank?: number;
+  mailBox?: number;
+  custom?: string;
+}
+
+export interface TruckLoad extends StagingItem {
+  truckID: number;
+  loadedTimestamp: Date | string;
+}
+
 async function fetchFromAppsScript(action: string, params: Record<string, any> = {}) {
   // Validate API URL before making request
   if (!APPS_SCRIPT_URL) {
@@ -196,5 +232,39 @@ export function calculateShipDate(fromDate: Date = new Date()): Date {
   
   date.setDate(date.getDate() + daysToAdd);
   return date;
+}
+
+// ===== TRUCK LOADING API FUNCTIONS =====
+
+export async function getTrucks(): Promise<Truck[]> {
+  const result = await fetchFromAppsScript('getTrucks');
+  return result.data;
+}
+
+export async function createTruck(truckName?: string): Promise<Truck> {
+  const result = await fetchFromAppsScript('createTruck', { truckName: truckName || '' });
+  return result.data;
+}
+
+export async function getStagingArea(): Promise<StagingItem[]> {
+  const result = await fetchFromAppsScript('getStagingArea');
+  return result.data;
+}
+
+export async function loadToTruck(truckID: number, loads: StagingItem[]): Promise<void> {
+  await fetchFromAppsScript('loadToTruck', { truckID, loads });
+}
+
+export async function getTruckLoads(truckID: number): Promise<TruckLoad[]> {
+  const result = await fetchFromAppsScript('getTruckLoads', { truckID });
+  return result.data;
+}
+
+export async function clearStagingArea(): Promise<void> {
+  await fetchFromAppsScript('clearStagingArea');
+}
+
+export async function updateTruckStatus(truckID: number, status: string): Promise<void> {
+  await fetchFromAppsScript('updateTruckStatus', { truckID, status });
 }
 

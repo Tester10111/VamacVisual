@@ -88,9 +88,53 @@ CompanyAddress | 23323 BUSINESS CTR CT, RUTHER GLEN, VA 23546
 CompanyPhone | 804-321-3955
 
 
+Sheet 6: "Trucks"
+Columns:
+- A: TruckID (unique number, sequential starting from 1)
+- B: TruckName (e.g., "11/05 Truck #1" or custom name)
+- C: CreateDate (date only)
+- D: CreateTimestamp (full date and time)
+- E: Status (Active/Closed)
+
+Sample Data:
+1 | 11/05 Truck #1 | 2025-11-05 | 2025-11-05 08:00:00 | Active
+
+
+Sheet 7: "TruckLoads"
+Columns:
+- A: TruckID (references Trucks sheet)
+- B: BranchNumber
+- C: BranchName
+- D: PickDate (date when items were originally staged)
+- E: Pallets (number)
+- F: Boxes (number)
+- G: Rolls (number)
+- H: Fiberglass (number)
+- I: WaterHeaters (number)
+- J: WaterRights (number)
+- K: BoxTub (number)
+- L: CopperPipe (number)
+- M: PlasticPipe (number)
+- N: GALVPipe (number)
+- O: BlackPipe (number)
+- P: Wood (number)
+- Q: GalvSTRUT (number)
+- R: IM540TANK (number)
+- S: IM1250TANK (number)
+- T: MailBox (number)
+- U: Custom (text) - Custom items and quantities
+- V: LoadedTimestamp (full date and time when loaded to truck)
+
+Sample Data:
+1 | 5 | Petersburg | 2025-11-05 | 3 | 10 | 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | "Special Pipe:5" | 2025-11-05 14:30:00
+
+Note: TruckLoads records items moved from staging area to trucks.
+The staging area shows: StageRecords (grouped by branch+pickDate) MINUS TruckLoads (grouped by branch+pickDate)
+
+
 SETUP INSTRUCTIONS:
 1. Create a new Google Sheets spreadsheet
-2. Create 5 sheets with the names above
+2. Create 7 sheets with the names above
 3. Add the column headers (row 1) for each sheet
 4. Add the sample data starting from row 2
 5. In Google Sheets, go to Extensions > Apps Script

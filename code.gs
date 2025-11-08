@@ -56,6 +56,33 @@ function handleRequest(e) {
         const rowIndex = parseInt(e.parameter.rowIndex);
         result = deleteStageRecord(rowIndex);
         break;
+      case 'getTrucks':
+        result = getTrucks();
+        break;
+      case 'createTruck':
+        const truckName = e.parameter.truckName;
+        result = createTruck(truckName);
+        break;
+      case 'getStagingArea':
+        result = getStagingArea();
+        break;
+      case 'loadToTruck':
+        const truckID = parseInt(e.parameter.truckID);
+        const loads = JSON.parse(e.parameter.loads);
+        result = loadToTruck(truckID, loads);
+        break;
+      case 'getTruckLoads':
+        const getTruckID = parseInt(e.parameter.truckID);
+        result = getTruckLoads(getTruckID);
+        break;
+      case 'clearStagingArea':
+        result = clearStagingArea();
+        break;
+      case 'updateTruckStatus':
+        const updateTruckID = parseInt(e.parameter.truckID);
+        const status = e.parameter.status;
+        result = updateTruckStatus(updateTruckID, status);
+        break;
       default:
         result = { success: false, error: 'Invalid action' };
     }
@@ -514,6 +541,418 @@ function deleteStageRecord(rowIndex) {
     return { success: true };
   } catch (error) {
     Logger.log('Error deleting record: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// ===== TRUCK LOADING FUNCTIONS =====
+
+// Get all trucks
+function getTrucks() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Trucks');
+    
+    if (!sheet) {
+      // If Trucks sheet doesn't exist yet, return empty array
+      return { success: true, data: [] };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const trucks = [];
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0]) { // Check if TruckID exists
+        trucks.push({
+          truckID: data[i][0],
+          truckName: data[i][1],
+          createDate: data[i][2],
+          createTimestamp: data[i][3],
+          status: data[i][4] || 'Active'
+        });
+      }
+    }
+    
+    return { success: true, data: trucks };
+  } catch (error) {
+    Logger.log('Error in getTrucks: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Create a new truck
+function createTruck(truckName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('Trucks');
+    
+    // Create Trucks sheet if it doesn't exist
+    if (!sheet) {
+      sheet = ss.insertSheet('Trucks');
+      sheet.appendRow(['TruckID', 'TruckName', 'CreateDate', 'CreateTimestamp', 'Status']);
+    }
+    
+    const timezone = 'America/New_York';
+    const now = new Date();
+    const dateOnly = Utilities.formatDate(now, timezone, 'yyyy-MM-dd');
+    
+    // Get next truck ID
+    const data = sheet.getDataRange().getValues();
+    let nextID = 1;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] && data[i][0] >= nextID) {
+        nextID = data[i][0] + 1;
+      }
+    }
+    
+    // If no name provided, generate default name
+    if (!truckName || truckName.trim() === '') {
+      const formattedDate = Utilities.formatDate(now, timezone, 'MM/dd');
+      // Count trucks created today
+      let todayCount = 0;
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][2]) {
+          const createDate = Utilities.formatDate(new Date(data[i][2]), timezone, 'yyyy-MM-dd');
+          if (createDate === dateOnly) {
+            todayCount++;
+          }
+        }
+      }
+      truckName = `${formattedDate} Truck #${todayCount + 1}`;
+    }
+    
+    sheet.appendRow([nextID, truckName, dateOnly, now, 'Active']);
+    
+    return { 
+      success: true, 
+      data: {
+        truckID: nextID,
+        truckName: truckName,
+        createDate: dateOnly,
+        createTimestamp: now,
+        status: 'Active'
+      }
+    };
+  } catch (error) {
+    Logger.log('Error in createTruck: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Get staging area (StageRecords minus TruckLoads, grouped by branch and pick date)
+function getStagingArea() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const stageSheet = ss.getSheetByName('StageRecords');
+    const loadSheet = ss.getSheetByName('TruckLoads');
+    const timezone = 'America/New_York';
+    
+    if (!stageSheet) {
+      return { success: true, data: [] };
+    }
+    
+    // Aggregate all staged items by branch and pick date
+    const stageData = stageSheet.getDataRange().getValues();
+    const staged = {}; // Key: "branchNumber-pickDate", Value: quantities
+    
+    for (let i = 1; i < stageData.length; i++) {
+      if (!stageData[i][3]) continue; // Skip if no branch number
+      
+      const branchNumber = stageData[i][3];
+      const branchName = stageData[i][4];
+      let pickDate = stageData[i][8]; // Column I (Date)
+      
+      // Parse pick date
+      if (pickDate) {
+        if (pickDate.getTime && !isNaN(pickDate.getTime())) {
+          pickDate = Utilities.formatDate(pickDate, timezone, 'yyyy-MM-dd');
+        } else if (typeof pickDate === 'string') {
+          pickDate = pickDate.substring(0, 10);
+        }
+      }
+      
+      const key = `${branchNumber}-${pickDate}`;
+      
+      if (!staged[key]) {
+        staged[key] = {
+          branchNumber: branchNumber,
+          branchName: branchName,
+          pickDate: pickDate,
+          pallets: 0,
+          boxes: 0,
+          rolls: 0,
+          fiberglass: 0,
+          waterHeaters: 0,
+          waterRights: 0,
+          boxTub: 0,
+          copperPipe: 0,
+          plasticPipe: 0,
+          galvPipe: 0,
+          blackPipe: 0,
+          wood: 0,
+          galvStrut: 0,
+          im540Tank: 0,
+          im1250Tank: 0,
+          mailBox: 0,
+          customItems: []
+        };
+      }
+      
+      // Add quantities
+      staged[key].pallets += stageData[i][5] || 0;
+      staged[key].boxes += stageData[i][6] || 0;
+      staged[key].rolls += stageData[i][7] || 0;
+      staged[key].fiberglass += stageData[i][9] || 0;
+      staged[key].waterHeaters += stageData[i][10] || 0;
+      staged[key].waterRights += stageData[i][11] || 0;
+      staged[key].boxTub += stageData[i][12] || 0;
+      staged[key].copperPipe += stageData[i][13] || 0;
+      staged[key].plasticPipe += stageData[i][14] || 0;
+      staged[key].galvPipe += stageData[i][15] || 0;
+      staged[key].blackPipe += stageData[i][16] || 0;
+      staged[key].wood += stageData[i][17] || 0;
+      staged[key].galvStrut += stageData[i][18] || 0;
+      staged[key].im540Tank += stageData[i][19] || 0;
+      staged[key].im1250Tank += stageData[i][20] || 0;
+      staged[key].mailBox += stageData[i][21] || 0;
+      
+      // Collect custom items
+      if (stageData[i][22] && stageData[i][22].trim()) {
+        staged[key].customItems.push(stageData[i][22]);
+      }
+    }
+    
+    // Subtract loaded items if TruckLoads sheet exists
+    if (loadSheet) {
+      const loadData = loadSheet.getDataRange().getValues();
+      
+      for (let i = 1; i < loadData.length; i++) {
+        if (!loadData[i][1]) continue; // Skip if no branch number
+        
+        const branchNumber = loadData[i][1];
+        let pickDate = loadData[i][3]; // Column D (PickDate)
+        
+        // Parse pick date
+        if (pickDate) {
+          if (pickDate.getTime && !isNaN(pickDate.getTime())) {
+            pickDate = Utilities.formatDate(pickDate, timezone, 'yyyy-MM-dd');
+          } else if (typeof pickDate === 'string') {
+            pickDate = pickDate.substring(0, 10);
+          }
+        }
+        
+        const key = `${branchNumber}-${pickDate}`;
+        
+        if (staged[key]) {
+          // Subtract quantities
+          staged[key].pallets -= loadData[i][4] || 0;
+          staged[key].boxes -= loadData[i][5] || 0;
+          staged[key].rolls -= loadData[i][6] || 0;
+          staged[key].fiberglass -= loadData[i][7] || 0;
+          staged[key].waterHeaters -= loadData[i][8] || 0;
+          staged[key].waterRights -= loadData[i][9] || 0;
+          staged[key].boxTub -= loadData[i][10] || 0;
+          staged[key].copperPipe -= loadData[i][11] || 0;
+          staged[key].plasticPipe -= loadData[i][12] || 0;
+          staged[key].galvPipe -= loadData[i][13] || 0;
+          staged[key].blackPipe -= loadData[i][14] || 0;
+          staged[key].wood -= loadData[i][15] || 0;
+          staged[key].galvStrut -= loadData[i][16] || 0;
+          staged[key].im540Tank -= loadData[i][17] || 0;
+          staged[key].im1250Tank -= loadData[i][18] || 0;
+          staged[key].mailBox -= loadData[i][19] || 0;
+          // Note: Custom items handling can be complex, for now we'll keep track separately
+        }
+      }
+    }
+    
+    // Convert to array and filter out zero quantities
+    const result = [];
+    for (let key in staged) {
+      const item = staged[key];
+      // Only include if at least one quantity is > 0
+      const hasQuantity = item.pallets > 0 || item.boxes > 0 || item.rolls > 0 ||
+                         item.fiberglass > 0 || item.waterHeaters > 0 || item.waterRights > 0 ||
+                         item.boxTub > 0 || item.copperPipe > 0 || item.plasticPipe > 0 ||
+                         item.galvPipe > 0 || item.blackPipe > 0 || item.wood > 0 ||
+                         item.galvStrut > 0 || item.im540Tank > 0 || item.im1250Tank > 0 ||
+                         item.mailBox > 0 || item.customItems.length > 0;
+      
+      if (hasQuantity) {
+        // Combine custom items into a single string
+        item.custom = item.customItems.join(',');
+        delete item.customItems;
+        result.push(item);
+      }
+    }
+    
+    // Sort by pick date (oldest first) then by branch number
+    result.sort((a, b) => {
+      if (a.pickDate < b.pickDate) return -1;
+      if (a.pickDate > b.pickDate) return 1;
+      return a.branchNumber - b.branchNumber;
+    });
+    
+    return { success: true, data: result };
+  } catch (error) {
+    Logger.log('Error in getStagingArea: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Load items to truck
+function loadToTruck(truckID, loads) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('TruckLoads');
+    
+    // Create TruckLoads sheet if it doesn't exist
+    if (!sheet) {
+      sheet = ss.insertSheet('TruckLoads');
+      sheet.appendRow([
+        'TruckID', 'BranchNumber', 'BranchName', 'PickDate',
+        'Pallets', 'Boxes', 'Rolls',
+        'Fiberglass', 'WaterHeaters', 'WaterRights', 'BoxTub',
+        'CopperPipe', 'PlasticPipe', 'GALVPipe', 'BlackPipe',
+        'Wood', 'GalvSTRUT', 'IM540TANK', 'IM1250TANK', 'MailBox',
+        'Custom', 'LoadedTimestamp'
+      ]);
+    }
+    
+    const timezone = 'America/New_York';
+    const now = new Date();
+    
+    // Add each load
+    loads.forEach(load => {
+      sheet.appendRow([
+        truckID,
+        load.branchNumber,
+        load.branchName,
+        load.pickDate,
+        load.pallets || 0,
+        load.boxes || 0,
+        load.rolls || 0,
+        load.fiberglass || 0,
+        load.waterHeaters || 0,
+        load.waterRights || 0,
+        load.boxTub || 0,
+        load.copperPipe || 0,
+        load.plasticPipe || 0,
+        load.galvPipe || 0,
+        load.blackPipe || 0,
+        load.wood || 0,
+        load.galvStrut || 0,
+        load.im540Tank || 0,
+        load.im1250Tank || 0,
+        load.mailBox || 0,
+        load.custom || '',
+        now
+      ]);
+    });
+    
+    return { success: true };
+  } catch (error) {
+    Logger.log('Error in loadToTruck: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Get all loads for a specific truck
+function getTruckLoads(truckID) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('TruckLoads');
+    
+    if (!sheet) {
+      return { success: true, data: [] };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const loads = [];
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === truckID) {
+        loads.push({
+          truckID: data[i][0],
+          branchNumber: data[i][1],
+          branchName: data[i][2],
+          pickDate: data[i][3],
+          pallets: data[i][4] || 0,
+          boxes: data[i][5] || 0,
+          rolls: data[i][6] || 0,
+          fiberglass: data[i][7] || 0,
+          waterHeaters: data[i][8] || 0,
+          waterRights: data[i][9] || 0,
+          boxTub: data[i][10] || 0,
+          copperPipe: data[i][11] || 0,
+          plasticPipe: data[i][12] || 0,
+          galvPipe: data[i][13] || 0,
+          blackPipe: data[i][14] || 0,
+          wood: data[i][15] || 0,
+          galvStrut: data[i][16] || 0,
+          im540Tank: data[i][17] || 0,
+          im1250Tank: data[i][18] || 0,
+          mailBox: data[i][19] || 0,
+          custom: data[i][20] || '',
+          loadedTimestamp: data[i][21]
+        });
+      }
+    }
+    
+    return { success: true, data: loads };
+  } catch (error) {
+    Logger.log('Error in getTruckLoads: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Clear staging area (delete all StageRecords)
+function clearStagingArea() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('StageRecords');
+    
+    if (!sheet) {
+      return { success: true };
+    }
+    
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      // Delete all rows except header
+      sheet.deleteRows(2, lastRow - 1);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    Logger.log('Error in clearStagingArea: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Update truck status (Active/Departed)
+function updateTruckStatus(truckID, status) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Trucks');
+    
+    if (!sheet) {
+      return { success: false, error: 'Trucks sheet not found' };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    
+    // Find the truck row
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === truckID) {
+        // Update status in column E (index 4)
+        sheet.getRange(i + 1, 5).setValue(status);
+        return { success: true };
+      }
+    }
+    
+    return { success: false, error: 'Truck not found' };
+  } catch (error) {
+    Logger.log('Error in updateTruckStatus: ' + error);
     return { success: false, error: error.toString() };
   }
 }

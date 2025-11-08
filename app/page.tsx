@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import ViewMode from '@/components/ViewMode';
 import AdminMode from '@/components/AdminMode';
 import StageMode from '@/components/StageMode';
+import TruckLoadingMode from '@/components/TruckLoadingMode';
 import { getBranches, getPickers, getBayAssignments, Branch, Picker, BayAssignments } from '@/lib/api';
 import toast from 'react-hot-toast';
 
-type Mode = 'select' | 'view' | 'admin' | 'stage';
+type Mode = 'select' | 'view' | 'admin' | 'stage' | 'truck';
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>('select');
@@ -85,7 +86,7 @@ export default function Home() {
           <p className="text-2xl text-blue-200">Warehouse Bay Management System</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl">
           <button
             onClick={() => setMode('view')}
             className="bg-white hover:bg-gray-100 text-gray-800 font-bold py-12 px-8 rounded-2xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 animate-slideUp"
@@ -114,6 +115,16 @@ export default function Home() {
             <div className="text-5xl mb-4">📦</div>
             <div className="text-2xl mb-2">Stage Mode</div>
             <div className="text-sm text-gray-600">Record Shipments</div>
+          </button>
+
+          <button
+            onClick={() => setMode('truck')}
+            className="bg-white hover:bg-gray-100 text-gray-800 font-bold py-12 px-8 rounded-2xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 animate-slideUp"
+            style={{ animationDelay: '0.4s' }}
+          >
+            <div className="text-5xl mb-4">🚛</div>
+            <div className="text-2xl mb-2">Truck Loading</div>
+            <div className="text-sm text-gray-600">Load Trucks</div>
           </button>
         </div>
 
@@ -148,6 +159,11 @@ export default function Home() {
           pickers={pickers}
           onExit={() => setMode('select')}
           onSave={refreshData}
+        />
+      )}
+      {mode === 'truck' && (
+        <TruckLoadingMode
+          onBack={() => setMode('select')}
         />
       )}
     </>
