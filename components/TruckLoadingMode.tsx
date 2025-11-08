@@ -791,7 +791,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                       )}
 
                       {/* Advanced items */}
-                      {originalItem && originalItem.fiberglass && originalItem.fiberglass > 0 && (
+                      {originalItem && (originalItem.fiberglass ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Fiber-glass (max: {originalItem.fiberglass})
@@ -808,7 +808,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.waterHeaters && originalItem.waterHeaters > 0 && (
+                      {originalItem && (originalItem.waterHeaters ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Water Heaters (max: {originalItem.waterHeaters})
@@ -825,7 +825,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.waterRights && originalItem.waterRights > 0 && (
+                      {originalItem && (originalItem.waterRights ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Water Rights (max: {originalItem.waterRights})
@@ -842,7 +842,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.boxTub && originalItem.boxTub > 0 && (
+                      {originalItem && (originalItem.boxTub ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Box Tub (max: {originalItem.boxTub})
@@ -859,7 +859,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.copperPipe && originalItem.copperPipe > 0 && (
+                      {originalItem && (originalItem.copperPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Copper Pipe (max: {originalItem.copperPipe})
@@ -876,7 +876,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.plasticPipe && originalItem.plasticPipe > 0 && (
+                      {originalItem && (originalItem.plasticPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Plastic Pipe (max: {originalItem.plasticPipe})
@@ -893,7 +893,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.galvPipe && originalItem.galvPipe > 0 && (
+                      {originalItem && (originalItem.galvPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             GALV Pipe (max: {originalItem.galvPipe})
@@ -910,7 +910,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.blackPipe && originalItem.blackPipe > 0 && (
+                      {originalItem && (originalItem.blackPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Black Pipe (max: {originalItem.blackPipe})
@@ -927,7 +927,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.wood && originalItem.wood > 0 && (
+                      {originalItem && (originalItem.wood ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Wood (max: {originalItem.wood})
@@ -944,7 +944,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.galvStrut && originalItem.galvStrut > 0 && (
+                      {originalItem && (originalItem.galvStrut ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Galv STRUT (max: {originalItem.galvStrut})
@@ -961,7 +961,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.im540Tank && originalItem.im540Tank > 0 && (
+                      {originalItem && (originalItem.im540Tank ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             IM-540 TANK (max: {originalItem.im540Tank})
@@ -978,7 +978,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.im1250Tank && originalItem.im1250Tank > 0 && (
+                      {originalItem && (originalItem.im1250Tank ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             IM-1250 TANK (max: {originalItem.im1250Tank})
@@ -995,7 +995,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                       
-                      {originalItem && originalItem.mailBox && originalItem.mailBox > 0 && (
+                      {originalItem && (originalItem.mailBox ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Mail Box (max: {originalItem.mailBox})
