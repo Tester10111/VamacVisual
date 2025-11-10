@@ -52,32 +52,35 @@ function DroppableBay({
   return (
     <div
       ref={setNodeRef}
-      className={`bay-card min-h-[300px] flex flex-col ${branches.length > 0 ? 'occupied' : ''} ${isOver ? 'ring-4 ring-blue-500' : ''}`}
+      className={`rounded-3xl border border-white/12 bg-slate-950/40 backdrop-blur-md min-h-[260px] flex flex-col transition-all duration-300 ${branches.length > 0 ? 'shadow-2xl shadow-blue-900/40' : 'shadow-inner'} ${isOver ? 'ring-4 ring-blue-400/60' : ''}`}
     >
-      <div className="text-center mb-4">
-        <div className="text-4xl font-bold text-gray-700">Bay {bayNumber}</div>
+      <div className="px-5 pt-5 pb-3 text-center border-b border-white/10">
+        <div className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold text-white">Bay {bayNumber}</div>
       </div>
 
       {branches.length > 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-5 pb-6">
           {branches.map((branch) => (
-            <div key={branch.branchNumber} className="bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-xl p-4 w-full text-center shadow-xl relative">
+            <div
+              key={branch.branchNumber}
+              className="w-full rounded-2xl border border-white/15 bg-gradient-to-br from-blue-600/90 via-blue-700 to-blue-900/90 px-5 py-5 text-center shadow-[0_20px_60px_-40px_rgba(37,99,235,0.8)] relative"
+            >
               <button
                 onClick={() => onRemove(branch.branchNumber)}
-                className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                className="absolute top-3 right-3 rounded-full border border-white/20 bg-white/15 px-2 py-0.5 text-xs uppercase tracking-wide text-white hover:bg-white/30 transition"
               >
-                ×
+                Remove
               </button>
-              <div className="text-4xl font-bold mb-1">{branch.branchNumber}</div>
-              <div className="text-lg font-semibold">{branch.branchName}</div>
+              <div className="text-[clamp(2.25rem,3.5vw,3.25rem)] font-bold leading-none mb-2">{branch.branchNumber}</div>
+              <div className="text-base font-medium tracking-wide uppercase text-blue-100">Branch {branch.branchName}</div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center border-2 border-dashed border-gray-400 rounded-lg">
-          <div className="text-center text-gray-400">
-            <div className="text-4xl mb-2">↓</div>
-            <div className="text-lg">Drop branch here</div>
+        <div className="flex-1 flex items-center justify-center px-5 pb-6">
+          <div className="w-full rounded-xl border border-dashed border-white/25 bg-white/5 px-4 py-6 text-center text-blue-100/70">
+            <div className="text-4xl mb-2 opacity-80">↓</div>
+            <div className="text-sm uppercase tracking-wide">Drop branch here</div>
           </div>
         </div>
       )}
@@ -292,32 +295,38 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-md w-full">
-          <h2 className="text-3xl font-bold text-center mb-8">Admin Access</h2>
-          <form onSubmit={handlePinSubmit}>
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2 font-semibold">Enter PIN</label>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center px-6 py-10">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/8 backdrop-blur-lg shadow-[0_30px_120px_-40px_rgba(59,130,246,0.65)] px-8 py-10 text-white animate-fadeIn">
+          <div className="text-center mb-8">
+            <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-3">Admin Access</p>
+            <h2 className="text-[clamp(1.75rem,2.5vw,2.75rem)] font-semibold leading-tight">Enter Security PIN</h2>
+            <p className="text-sm text-blue-100/80 mt-3">Authorized personnel only. PIN is shared with Truck Loading mode.</p>
+          </div>
+          <form onSubmit={handlePinSubmit} className="space-y-6">
+            <div className="space-y-3">
+              <label className="block text-sm uppercase tracking-wide text-blue-100/70">6-digit PIN</label>
               <input
                 type="password"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
-                className="input-field w-full text-2xl text-center tracking-widest"
+                className="input-field w-full text-3xl text-center tracking-[0.6em] bg-white/10 border-white/20 text-white placeholder:text-blue-100/30 focus:border-blue-300/70 focus:bg-white/15"
                 maxLength={6}
                 placeholder="••••••"
                 autoFocus
               />
             </div>
-            <button type="submit" className="btn-primary w-full">
-              Enter
-            </button>
-            <button
-              type="button"
-              onClick={onExit}
-              className="btn-secondary w-full mt-4"
-            >
-              Cancel
-            </button>
+            <div className="flex flex-col gap-3">
+              <button type="submit" className="btn-primary w-full py-3 text-base rounded-full">
+                Unlock Admin Mode
+              </button>
+              <button
+                type="button"
+                onClick={onExit}
+                className="btn-secondary w-full py-3 text-base rounded-full border border-white/25 bg-white/10 hover:bg-white/20"
+              >
+                Return to Menu
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -329,83 +338,113 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-6 py-10 text-white">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">Admin Mode - Bay Management</h1>
-          <div className="flex gap-4">
-            <button onClick={() => setShowPickerManagement(true)} className="btn-secondary">
-               Edit Pickers
+        <div className="rounded-3xl border border-white/10 bg-white/6 backdrop-blur-lg shadow-[0_40px_120px_-50px_rgba(37,99,235,0.7)] px-6 py-6 md:px-8 md:py-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between animate-fadeIn">
+          <div>
+            <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-3">Admin Mode</p>
+            <h1 className="text-[clamp(2rem,3vw,3.25rem)] font-semibold leading-tight">Admin Console</h1>
+            <p className="text-sm md:text-base text-blue-100/80">
+              Assign staged branches, review history, and export daily summaries.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => setShowPickerManagement(true)} className="rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/20 transition">
+              Edit Pickers
             </button>
-            <button 
-              onClick={() => setShowHistory(true)} 
-              className="btn-secondary hover:scale-105 transition-transform"
+            
+            <button
+              onClick={openExportModal}
+              className="rounded-full bg-blue-500/90 px-5 py-2.5 text-sm font-semibold tracking-wide shadow-[0_10px_30px_-12px_rgba(59,130,246,0.9)] hover:bg-blue-500 transition"
             >
-              📊 View History
+              📄 Export PDF / Excel
             </button>
-            <button 
-              onClick={openExportModal} 
-              className="btn-primary hover:scale-105 transition-transform"
-            >
-              📄 Export as PDF/Excel
-            </button>
-            <button onClick={handleClearBoard} className="btn-danger">
+            <button onClick={handleClearBoard} className="rounded-full border border-red-400/50 bg-red-500/20 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-red-500/30 transition">
               Clear Board
             </button>
-            <button onClick={handleLogout} className="btn-secondary">
+            <button onClick={handleLogout} className="rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/20 transition">
               Logout
             </button>
-            <button onClick={onExit} className="btn-secondary">
+            <button onClick={onExit} className="rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/20 transition">
               Exit
             </button>
           </div>
         </div>
 
         <DndContext onDragEnd={handleDragEnd}>
-          {/* Available Branches */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4 text-gray-700">Available Branches</h2>
-            <div className="flex flex-wrap gap-4">
-              {availableBranches.length > 0 ? (
-                availableBranches.map((branch) => (
-                  <DraggableBranch key={branch.branchNumber} branch={branch} />
-                ))
-              ) : (
-                <div className="text-gray-500 italic">All branches are assigned</div>
-              )}
-            </div>
-          </div>
+          <div className="grid gap-8 lg:grid-cols-[1.4fr,2fr]">
+            {/* Available Branches */}
+            <div className="space-y-5">
+              <div className="rounded-3xl border border-white/10 bg-white/6 backdrop-blur px-6 py-6 md:px-8 md:py-7 shadow-2xl">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-xl font-semibold">Available Branches</h2>
+                    <p className="text-xs uppercase tracking-wide text-blue-100/70">Drag and drop to assign bays</p>
+                  </div>
+                  <div className="text-xs text-blue-100/60 uppercase tracking-[0.3em]">
+                    {availableBranches.length} ready
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {availableBranches.length > 0 ? (
+                    availableBranches.map((branch) => (
+                      <DraggableBranch key={branch.branchNumber} branch={branch} />
+                    ))
+                  ) : (
+                    <div className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-4 text-center text-blue-100/70">
+                      All branches currently assigned
+                    </div>
+                  )}
+                </div>
+              </div>
 
-          {/* Bays */}
-          <div>
-            <h2 className="text-2xl font-bold mb-4 text-gray-700">Bays (5 → 1)</h2>
-            <div className="grid grid-cols-5 gap-6">
-              {[5, 4, 3, 2, 1].map((bayNumber) => (
-                <DroppableBay
-                  key={bayNumber}
-                  bayNumber={bayNumber}
-                  branches={getBranchesForBay(bayNumber)}
-                  onRemove={(branchNumber) => handleRemove(bayNumber, branchNumber)}
-                />
-              ))}
+              <div className="rounded-3xl border border-white/10 bg-white/6 backdrop-blur px-6 py-6 md:px-8 md:py-7 shadow-2xl">
+                <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="rounded-2xl border border-blue-400/50 bg-blue-500/20 px-5 py-4 text-left text-sm font-medium tracking-wide hover:bg-blue-500/30 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <div className="text-xs uppercase tracking-[0.3em] text-blue-100/70 mb-1">Primary</div>
+                    <div className="text-base font-semibold">{saving ? 'Saving...' : 'Save Assignments'}</div>
+                    <div className="text-xs text-blue-100/60 mt-1">Updates bay layout</div>
+                  </button>
+                  <button
+                    onClick={() => setShowHistory(true)}
+                    className="rounded-2xl border border-white/20 bg-white/12 px-5 py-4 text-left text-sm font-medium tracking-wide hover:bg-white/18 transition"
+                  >
+                    <div className="text-xs uppercase tracking-[0.3em] text-blue-100/70 mb-1">Review</div>
+                    <div className="text-base font-semibold">Stage History</div>
+                    <div className="text-xs text-blue-100/60 mt-1">Review History</div>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Save Button */}
-          <div className="mt-8 text-center">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary text-xl px-12 py-4"
-            >
-              {saving ? 'Saving...' : 'Save Assignments'}
-            </button>
+            {/* Bays */}
+            <div className="rounded-3xl border border-white/10 bg-white/6 backdrop-blur px-6 py-6 md:px-8 md:py-7 shadow-2xl">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-semibold">Bay Layout (5 → 1)</h2>
+                <div className="text-xs uppercase tracking-[0.3em] text-blue-100/70">Live Grid</div>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {[5, 4, 3, 2, 1].map((bayNumber) => (
+                  <DroppableBay
+                    key={bayNumber}
+                    bayNumber={bayNumber}
+                    branches={getBranchesForBay(bayNumber)}
+                    onRemove={(branchNumber) => handleRemove(bayNumber, branchNumber)}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           <DragOverlay>
             {activeBranch && (
-              <div className="branch-badge opacity-75">
+              <div className="branch-badge opacity-80 backdrop-blur-lg">
                 <div className="text-3xl font-bold">Branch {activeBranch.branchNumber}</div>
                 <div className="text-lg">{activeBranch.branchName}</div>
               </div>
@@ -416,27 +455,28 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
 
       {/* Export PDF Date Selection Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 animate-slideUp">
-            <h2 className="text-2xl font-bold mb-6">📄 Export Daily Summary PDF</h2>
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2 font-semibold">Select Date</label>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn px-4">
+          <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl shadow-[0_30px_100px_-40px_rgba(59,130,246,0.7)] px-8 py-8 text-white animate-slideUp">
+            <h2 className="text-[clamp(1.5rem,2.2vw,2rem)] font-semibold mb-3">📄 Export Daily Summary</h2>
+            <p className="text-sm text-blue-100/75 mb-6">Review and customize records in the preview before generating the final PDF and Excel files.</p>
+            <div className="mb-6 space-y-3">
+              <label className="block text-sm uppercase tracking-wide text-blue-100/70">Select Date</label>
               <input
                 type="date"
                 value={exportDate}
                 onChange={(e) => setExportDate(e.target.value)}
-                className="input-field w-full text-lg"
+                className="input-field w-full text-lg bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                 required
               />
-              <p className="text-sm text-gray-500 mt-2">
-                Choose the date you want to export. All records from that day will be included.
+              <p className="text-xs text-blue-100/70">
+                Choose the date you want to export. All recorded branches for the selected day will be included in the preview.
               </p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button 
                 onClick={() => handleExportPDF()} 
                 disabled={isLoadingPDF}
-                className="btn-primary flex-1 flex items-center justify-center gap-2"
+                className="btn-primary flex-1 flex items-center justify-center gap-2 rounded-full py-3"
               >
                 {isLoadingPDF ? (
                   <>
@@ -454,7 +494,7 @@ export default function AdminMode({ branches, bayAssignments, onExit, onSave }: 
                   setIsLoadingPDF(false);
                 }}
                 disabled={isLoadingPDF}
-                className="btn-secondary flex-1"
+                className="btn-secondary flex-1 rounded-full py-3 border border-white/20 bg-white/10 hover:bg-white/20"
               >
                 Cancel
               </button>

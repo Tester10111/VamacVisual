@@ -81,58 +81,61 @@ export default function PickerManagement({ pickers: initialPickers, onClose, onS
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col animate-slideUp">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm px-4 py-8 animate-fadeIn">
+      <div className="w-full max-w-4xl max-h-[88vh] rounded-3xl border border-white/12 bg-white/10 backdrop-blur-xl shadow-[0_40px_140px_-50px_rgba(37,99,235,0.85)] flex flex-col overflow-hidden animate-slideUp text-white">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-t-xl">
-          <h2 className="text-2xl font-bold text-white">Picker Management</h2>
-          <p className="text-blue-100">Add new pickers or view existing ones</p>
+        <div className="px-8 py-7 border-b border-white/10 bg-gradient-to-r from-blue-600/80 via-blue-700/80 to-blue-800/80">
+          <h2 className="text-[clamp(1.75rem,2.4vw,2.25rem)] font-semibold leading-tight">Picker Management</h2>
+          <p className="text-sm text-blue-100/80 mt-2">Add new pickers or review the current roster.</p>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto px-8 py-7 space-y-7">
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
             </div>
           ) : (
             <>
           {/* Add New Picker Section */}
-          <div className="mb-6">
+          <div className="rounded-3xl border border-white/12 bg-white/8 px-6 py-6 md:px-7 md:py-7 shadow-inner">
             {!isAdding ? (
               <button
                 onClick={() => setIsAdding(true)}
-                className="btn-primary w-full"
+                className="w-full rounded-full bg-blue-500/90 hover:bg-blue-500 transition text-white text-sm font-semibold tracking-wide py-3 shadow-[0_18px_40px_-18px_rgba(59,130,246,0.9)]"
               >
                 + Add New Picker
               </button>
             ) : (
-              <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 animate-slideDown">
-                <h3 className="text-lg font-semibold mb-4 text-green-900">Add New Picker</h3>
+              <div className="rounded-3xl border border-emerald-400/40 bg-emerald-500/15 px-6 py-6 md:px-7 md:py-7 space-y-5 animate-slideDown">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <h3 className="text-lg font-semibold text-emerald-100">Add New Picker</h3>
+                  <p className="text-xs uppercase tracking-wider text-emerald-200/70">Both fields required</p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Picker ID: <span className="text-red-500">*</span>
+                    <label className="block text-xs uppercase tracking-wide text-emerald-100/80 mb-2">
+                      Picker ID <span className="text-emerald-200/80">*</span>
                     </label>
                     <input
                       type="number"
                       value={newPickerID}
                       onChange={(e) => setNewPickerID(e.target.value)}
                       placeholder="Enter ID number"
-                      className="input-field w-full"
+                      className="input-field w-full bg-white/10 border-white/25 text-white placeholder:text-emerald-100/40 focus:border-emerald-200/70 focus:bg-white/15"
                       disabled={isSubmitting}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Picker Name: <span className="text-red-500">*</span>
+                    <label className="block text-xs uppercase tracking-wide text-emerald-100/80 mb-2">
+                      Picker Name <span className="text-emerald-200/80">*</span>
                     </label>
                     <input
                       type="text"
                       value={newPickerName}
                       onChange={(e) => setNewPickerName(e.target.value)}
                       placeholder="Enter name"
-                      className="input-field w-full"
+                      className="input-field w-full bg-white/10 border-white/25 text-white placeholder:text-emerald-100/40 focus:border-emerald-200/70 focus:bg-white/15"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -141,7 +144,7 @@ export default function PickerManagement({ pickers: initialPickers, onClose, onS
                   <button
                     onClick={handleAddPicker}
                     disabled={isSubmitting}
-                    className="btn-primary flex-1"
+                    className="btn-primary flex-1 rounded-full py-3"
                   >
                     {isSubmitting ? 'Adding...' : 'Add Picker'}
                   </button>
@@ -152,7 +155,7 @@ export default function PickerManagement({ pickers: initialPickers, onClose, onS
                       setNewPickerName('');
                     }}
                     disabled={isSubmitting}
-                    className="btn-secondary flex-1"
+                    className="btn-secondary flex-1 rounded-full py-3 border border-white/25 bg-white/10 hover:bg-white/20"
                   >
                     Cancel
                   </button>
@@ -162,28 +165,31 @@ export default function PickerManagement({ pickers: initialPickers, onClose, onS
           </div>
 
           {/* Existing Pickers List */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4">All Pickers ({pickers.length})</h3>
+          <div className="rounded-3xl border border-white/12 bg-white/6 px-6 py-6 md:px-7 md:py-7">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-5">
+              <h3 className="text-lg font-semibold">All Pickers ({pickers.length})</h3>
+              
+            </div>
             {pickers.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-6 text-center text-blue-100/70">
                 No pickers found. Add your first picker above.
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {pickers
                   .sort((a, b) => a.pickerID - b.pickerID)
                   .map((picker) => (
                     <div
                       key={picker.pickerID}
-                      className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                      className="rounded-2xl border border-white/12 bg-white/10 px-5 py-4 flex items-center justify-between hover:bg-white/16 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="bg-blue-600 text-white font-bold rounded-full w-12 h-12 flex items-center justify-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-blue-300/60 bg-blue-600/70 text-white text-lg font-semibold">
                           {picker.pickerID}
                         </div>
                         <div>
-                          <div className="font-semibold text-gray-900">{picker.pickerName}</div>
-                          <div className="text-sm text-gray-500">ID: {picker.pickerID}</div>
+                          <div className="font-semibold text-white">{picker.pickerName}</div>
+                          <div className="text-xs uppercase tracking-wide text-blue-100/60 mt-1">ID: {picker.pickerID}</div>
                         </div>
                       </div>
                       {/* Future: Add edit/delete buttons here if needed */}
@@ -197,10 +203,10 @@ export default function PickerManagement({ pickers: initialPickers, onClose, onS
         </div>
 
         {/* Footer */}
-        <div className="border-t p-4 bg-gray-50 rounded-b-xl">
+        <div className="border-t border-white/10 bg-white/6 px-6 py-5">
           <button
             onClick={onClose}
-            className="btn-secondary w-full"
+            className="btn-secondary w-full rounded-full border border-white/20 bg-white/10 hover:bg-white/20"
           >
             Close
           </button>

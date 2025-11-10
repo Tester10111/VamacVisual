@@ -146,6 +146,11 @@ export async function getBranches(): Promise<Branch[]> {
   return result.data;
 }
 
+export async function getVersion(): Promise<string> {
+  const result = await fetchFromAppsScript('getVersion');
+  return result.version || 'Unknown';
+}
+
 export async function getPickers(): Promise<Picker[]> {
   const result = await fetchFromAppsScript('getPickers');
   return result.data;

@@ -221,22 +221,54 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-700 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-6 py-10 flex items-stretch justify-center">
+      <div className="w-full max-w-5xl flex flex-col gap-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-white">Stage Mode</h1>
-          <button onClick={onExit} className="bg-white text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all">
+        <div className="rounded-3xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-2xl px-6 py-6 text-white flex flex-col gap-4 md:flex-row md:justify-between md:items-center animate-fadeIn">
+          <div>
+            <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-2">Stage Mode</p>
+            <h1 className="text-[clamp(2rem,3vw,3rem)] font-semibold leading-tight">Record Staged Items</h1>
+            <p className="text-sm md:text-base text-blue-100/80">
+              Log your picking here.
+            </p>
+          </div>
+          <button
+            onClick={onExit}
+            type="button"
+            className="self-start md:self-center px-6 py-3 rounded-full bg-white/10 border border-white/30 text-sm md:text-base font-medium tracking-wide hover:bg-white/15 hover:border-white/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/60"
+          >
             Exit
           </button>
         </div>
 
         {/* Main Form */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <form onSubmit={handleSubmit}>
+        <div className="rounded-3xl bg-white/10 backdrop-blur-md border border-white/10 shadow-2xl px-6 py-8 md:px-10 md:py-10 text-white animate-slideUp">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Step indicator */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/15 bg-white/8 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-400/50 text-lg font-semibold">1</div>
+                  <div>
+                    <p className="text-sm uppercase tracking-wider text-blue-200/70 mb-1">Step One</p>
+                    <p className="text-base font-semibold">Enter Picker ID & Branch</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-white/8 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-400/50 text-lg font-semibold">2</div>
+                  <div>
+                    <p className="text-sm uppercase tracking-wider text-blue-200/70 mb-1">Step Two</p>
+                    <p className="text-base font-semibold">Enter Quantities & Submit</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Picker ID Section */}
-            <div className="mb-8">
-              <label className="block text-gray-700 mb-2 font-semibold text-lg">Picker ID</label>
+            <div className="rounded-3xl border border-white/15 bg-white/8 px-6 py-6 md:px-8 md:py-7 shadow-inner">
+              <label className="block text-blue-100/80 font-semibold text-lg mb-4">Picker Identification</label>
               <input
                 type="number"
                 value={pickerID}
@@ -247,75 +279,100 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                   }
                 }}
                 onBlur={handlePickerIDSubmit}
-                className="input-field w-full text-xl"
-                placeholder="Enter your ID"
+                className="input-field w-full text-lg md:text-xl bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                placeholder="Enter your ID to begin"
                 autoFocus
                 required
               />
               {pickerName && (
-                <div className="mt-3 p-4 bg-green-100 border-2 border-green-500 rounded-lg">
-                  <div className="text-green-800 font-semibold text-lg">Great work picking, {pickerName}!</div>
+                <div className="mt-4 rounded-2xl border border-emerald-400/60 bg-emerald-500/15 px-5 py-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm uppercase tracking-wide text-emerald-200/80">Picker Found</div>
+                    <div className="text-lg md:text-xl font-semibold text-emerald-100">Great work picking, {pickerName}!</div>
+                  </div>
+                  <div className="hidden md:flex h-10 w-10 items-center justify-center rounded-full border border-emerald-300/60 bg-emerald-500/20 text-emerald-100 text-xl">
+                    ✓
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Branch Section */}
-            <div className="mb-8">
-              <label className="block text-gray-700 mb-2 font-semibold text-lg">Branch</label>
+            <div className="rounded-3xl border border-white/15 bg-white/8 px-6 py-6 md:px-8 md:py-7 shadow-inner">
+              <label className="block text-blue-100/80 font-semibold text-lg mb-4">Assign Branch</label>
               <input
                 ref={branchInputRef}
                 type="text"
                 value={branchInput}
                 onChange={(e) => handleBranchInput(e.target.value)}
                 onKeyDown={handleBranchKeyDown}
-                className="input-field w-full text-xl"
-                placeholder="Enter branch number or name (press Enter)"
+                className="input-field w-full text-lg md:text-xl bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                placeholder="Enter branch number or name"
                 required
                 disabled={!pickerName}
               />
               {selectedBranch && (
-                <div className="mt-3 p-4 bg-blue-100 border-2 border-blue-500 rounded-lg">
-                  <div className="text-blue-800 font-semibold text-lg">
-                    Branch {selectedBranch.branchNumber} - {selectedBranch.branchName}
+                <div className="mt-4 rounded-2xl border border-blue-400/60 bg-blue-500/20 px-5 py-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm uppercase tracking-wide text-blue-100/70">Selected Branch</div>
+                    <div className="text-lg md:text-xl font-semibold text-white">
+                      {selectedBranch.branchNumber} — {selectedBranch.branchName}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBranchInput('');
+                      setSelectedBranch(null);
+                      branchInputRef.current?.focus();
+                    }}
+                    className="px-3 py-1.5 text-xs uppercase tracking-wide rounded-full bg-white/10 border border-white/20 text-blue-50 hover:bg-white/20 transition"
+                  >
+                    Change
+                  </button>
                 </div>
               )}
             </div>
 
             {/* Quantities Section */}
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-4 font-semibold text-lg">Basic Quantities</label>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-gray-600 mb-2">Pallets</label>
+            <div className="rounded-3xl border border-white/15 bg-white/6 px-6 py-6 md:px-8 md:py-7 shadow-inner">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+                <label className="text-blue-100/80 font-semibold text-lg">Basic Quantities</label>
+                <p className="text-sm text-blue-100/60">
+                  Use Enter to move between fields once a branch is selected.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-5">
+                  <label className="block text-sm uppercase tracking-wide text-blue-100/70 mb-3">Pallets</label>
                   <input
                     ref={palletsInputRef}
                     type="number"
                     value={pallets}
                     onChange={(e) => setPallets(e.target.value)}
                     onKeyDown={(e) => handleQuantityKeyDown(e, boxesInputRef)}
-                    className="input-field w-full text-xl text-center"
-                    placeholder="0"
+                    className="input-field w-full text-xl text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                    placeholder="00"
                     min="0"
                     disabled={!selectedBranch}
                   />
                 </div>
-                <div>
-                  <label className="block text-gray-600 mb-2">Boxes</label>
+                <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-5">
+                  <label className="block text-sm uppercase tracking-wide text-blue-100/70 mb-3">Boxes</label>
                   <input
                     ref={boxesInputRef}
                     type="number"
                     value={boxes}
                     onChange={(e) => setBoxes(e.target.value)}
                     onKeyDown={(e) => handleQuantityKeyDown(e, rollsInputRef)}
-                    className="input-field w-full text-xl text-center"
-                    placeholder="0"
+                    className="input-field w-full text-xl text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                    placeholder="00"
                     min="0"
                     disabled={!selectedBranch}
                   />
                 </div>
-                <div>
-                  <label className="block text-gray-600 mb-2">Rolls</label>
+                <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-5">
+                  <label className="block text-sm uppercase tracking-wide text-blue-100/70 mb-3">Rolls</label>
                   <input
                     ref={rollsInputRef}
                     type="number"
@@ -327,8 +384,8 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                         handleSubmit(e as any);
                       }
                     }}
-                    className="input-field w-full text-xl text-center"
-                    placeholder="0"
+                    className="input-field w-full text-xl text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                    placeholder="00"
                     min="0"
                     disabled={!selectedBranch}
                   />
@@ -337,161 +394,163 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
             </div>
 
             {/* Advanced Items Toggle */}
-            <div className="mb-8">
+            <div className="rounded-3xl border border-white/12 bg-white/6 px-6 py-6 md:px-8 md:py-7 shadow-inner">
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="btn-secondary w-full flex items-center justify-center gap-2"
+                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-white/20 bg-white/10 px-6 py-4 text-left transition hover:bg-white/15"
                 disabled={!selectedBranch}
               >
-                <span>{showAdvanced ? '▼' : '▶'}</span>
-                <span>Advanced Items</span>
-                {showAdvanced && <span className="text-sm">(Click to hide)</span>}
+                <div>
+                  <div className="text-sm uppercase tracking-wide text-blue-100/70">Advanced Items</div>
+                  <div className="text-base font-medium text-white">Track additional staged materials</div>
+                </div>
+                <span className="text-xl text-blue-100">{showAdvanced ? '▾' : '▸'}</span>
               </button>
 
               {showAdvanced && (
-                <div className="mt-4 p-6 bg-gray-50 rounded-xl border-2 border-gray-200 animate-slideDown">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Fiber-glass</label>
+                <div className="mt-6 rounded-3xl border border-white/15 bg-slate-900/50 px-6 py-6 md:px-8 md:py-7 animate-slideDown">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Fiber-glass</label>
                       <input
                         type="number"
                         value={fiberglass}
                         onChange={(e) => setFiberglass(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Water Heaters</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Water Heaters</label>
                       <input
                         type="number"
                         value={waterHeaters}
                         onChange={(e) => setWaterHeaters(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Water Rights</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Water Rights</label>
                       <input
                         type="number"
                         value={waterRights}
                         onChange={(e) => setWaterRights(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Box Tub</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Box Tub</label>
                       <input
                         type="number"
                         value={boxTub}
                         onChange={(e) => setBoxTub(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Copper Pipe</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Copper Pipe</label>
                       <input
                         type="number"
                         value={copperPipe}
                         onChange={(e) => setCopperPipe(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Plastic Pipe</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Plastic Pipe</label>
                       <input
                         type="number"
                         value={plasticPipe}
                         onChange={(e) => setPlasticPipe(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">GALV Pipe</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">GALV Pipe</label>
                       <input
                         type="number"
                         value={galvPipe}
                         onChange={(e) => setGalvPipe(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Black Pipe</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Black Pipe</label>
                       <input
                         type="number"
                         value={blackPipe}
                         onChange={(e) => setBlackPipe(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Wood</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Wood</label>
                       <input
                         type="number"
                         value={wood}
                         onChange={(e) => setWood(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Galv STRUT</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Galv STRUT</label>
                       <input
                         type="number"
                         value={galvStrut}
                         onChange={(e) => setGalvStrut(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">IM-540 TANK</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">IM-540 TANK</label>
                       <input
                         type="number"
                         value={im540Tank}
                         onChange={(e) => setIm540Tank(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">IM-1250 TANK</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">IM-1250 TANK</label>
                       <input
                         type="number"
                         value={im1250Tank}
                         onChange={(e) => setIm1250Tank(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-600 mb-1 text-sm">Mail Box</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-4">
+                      <label className="block text-xs uppercase tracking-wide text-blue-100/60 mb-2">Mail Box</label>
                       <input
                         type="number"
                         value={mailBox}
                         onChange={(e) => setMailBox(e.target.value)}
-                        className="input-field w-full text-center"
-                        placeholder="0"
+                        className="input-field w-full text-center bg-white/10 border-white/20 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+                        placeholder="00"
                         min="0"
                       />
                     </div>
@@ -502,8 +561,8 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
 
             {/* Custom Items Section */}
             {showAdvanced && (
-              <div className="mb-6 p-4 bg-purple-50 rounded-xl border-2 border-purple-200 animate-slideDown">
-                <h5 className="font-semibold text-sm mb-3 text-purple-900">Custom Items</h5>
+              <div className="rounded-3xl border border-purple-400/40 bg-purple-500/10 px-6 py-6 md:px-8 md:py-7 text-purple-50 animate-slideDown">
+                <h5 className="font-semibold text-sm mb-4 uppercase tracking-wide text-purple-100/80">Custom Items</h5>
                 <div className="space-y-2">
                   {customItems.map((item, index) => (
                     <div key={index} className="flex gap-2 items-center">
@@ -516,7 +575,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                           setCustomItems(newItems);
                         }}
                         placeholder="Item name"
-                        className="input-field flex-1 text-sm"
+                        className="input-field flex-1 text-sm bg-white/10 border-white/20 text-white placeholder:text-purple-100/40 focus:border-purple-200/70 focus:bg-white/15"
                         disabled={!selectedBranch}
                       />
                       <input
@@ -528,7 +587,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                           setCustomItems(newItems);
                         }}
                         placeholder="Qty"
-                        className="input-field w-20 text-sm text-center"
+                        className="input-field w-20 text-sm text-center bg-white/10 border-white/20 text-white placeholder:text-purple-100/40 focus:border-purple-200/70 focus:bg-white/15"
                         min="0"
                         disabled={!selectedBranch}
                       />
@@ -539,10 +598,10 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                             const newItems = customItems.filter((_, i) => i !== index);
                             setCustomItems(newItems.length > 0 ? newItems : [{ name: '', quantity: '' }]);
                           }}
-                          className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                          className="px-3 py-2 rounded border border-white/20 bg-white/10 hover:bg-white/20 text-sm font-semibold transition"
                           disabled={!selectedBranch}
                         >
-                          ×
+                          Remove
                         </button>
                       )}
                     </div>
@@ -550,7 +609,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                   <button
                     type="button"
                     onClick={() => setCustomItems([...customItems, { name: '', quantity: '' }])}
-                    className="w-full py-2 bg-purple-200 text-purple-800 rounded hover:bg-purple-300 text-sm font-semibold"
+                    className="w-full py-2 rounded-full border border-purple-200/40 bg-white/10 text-purple-50 text-sm font-semibold tracking-wide hover:bg-white/20 transition"
                     disabled={!selectedBranch}
                   >
                     + Add Custom Item
@@ -562,7 +621,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
             {/* Submit Button */}
             <button
               type="submit"
-              className="btn-primary w-full text-xl py-4 relative"
+              className="btn-primary w-full text-lg md:text-xl py-4 rounded-full relative shadow-lg shadow-blue-900/40"
               disabled={!pickerName || !selectedBranch || isSubmitting}
             >
               {isSubmitting ? (
@@ -581,21 +640,21 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
         </div>
 
         {/* Available Branches Reference */}
-        <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Available Branches</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="rounded-3xl border border-white/10 bg-white/8 backdrop-blur-sm shadow-2xl px-6 py-6 md:px-8 md:py-7">
+          <h3 className="text-lg md:text-xl font-semibold text-white mb-4">Quick Branch Reference</h3>
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
             {branches.map((branch) => (
               <div
                 key={branch.branchNumber}
-                className="bg-gray-100 rounded-lg p-3 text-center cursor-pointer hover:bg-blue-100 transition-all"
+                className="rounded-2xl border border-white/10 bg-white/12 px-4 py-4 text-center cursor-pointer transition hover:bg-white/20 hover:border-white/25 text-white"
                 onClick={() => {
                   setBranchInput(`${branch.branchNumber} - ${branch.branchName}`);
                   setSelectedBranch(branch);
                   setTimeout(() => palletsInputRef.current?.focus(), 100);
                 }}
               >
-                <div className="font-bold text-lg">{branch.branchNumber}</div>
-                <div className="text-sm text-gray-600">{branch.branchName}</div>
+                <div className="text-2xl font-semibold">{branch.branchNumber}</div>
+                <div className="text-xs uppercase tracking-wide text-blue-100/70 mt-1">{branch.branchName}</div>
               </div>
             ))}
           </div>

@@ -5,7 +5,7 @@ import ViewMode from '@/components/ViewMode';
 import AdminMode from '@/components/AdminMode';
 import StageMode from '@/components/StageMode';
 import TruckLoadingMode from '@/components/TruckLoadingMode';
-import { getBranches, getPickers, getBayAssignments, Branch, Picker, BayAssignments } from '@/lib/api';
+import { getBranches, getPickers, getBayAssignments, getVersion, Branch, Picker, BayAssignments } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 type Mode = 'select' | 'view' | 'admin' | 'stage' | 'truck';
@@ -17,6 +17,7 @@ export default function Home() {
   const [bayAssignments, setBayAssignments] = useState<BayAssignments>({});
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [version, setVersion] = useState<string>('Loading...');
 
   useEffect(() => {
     loadData();
@@ -30,14 +31,16 @@ export default function Home() {
         setIsRefreshing(true);
       }
       
-      const [branchesData, pickersData, assignmentsData] = await Promise.all([
+      const [branchesData, pickersData, assignmentsData, versionData] = await Promise.all([
         getBranches(),
         getPickers(),
         getBayAssignments(),
+        getVersion(),
       ]);
       setBranches(branchesData);
       setPickers(pickersData);
       setBayAssignments(assignmentsData);
+      setVersion(versionData);
     } catch (error) {
       console.error('Error loading data:', error);
       
@@ -83,7 +86,7 @@ export default function Home() {
             e.currentTarget.style.display = 'none';
           }} />
           <h1 className="text-6xl font-bold text-white mb-4">VAMAC Visual</h1>
-          <p className="text-2xl text-blue-200">Warehouse Bay Management System</p>
+          
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl">
@@ -130,6 +133,7 @@ export default function Home() {
 
         <div className="mt-12 text-center text-blue-200 text-sm">
           <p>Select a mode to continue</p>
+          <p className="mt-4 text-blue-300 font-medium">Build Version: {version}</p>
         </div>
       </div>
     );

@@ -308,32 +308,38 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   // PIN Screen (consistent with Admin Mode)
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-md w-full">
-          <h2 className="text-3xl font-bold text-center mb-8">Admin Access</h2>
-          <form onSubmit={handlePinSubmit}>
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2 font-semibold">Enter PIN</label>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center px-6 py-10">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl shadow-[0_40px_140px_-50px_rgba(37,99,235,0.85)] px-8 py-10 text-white animate-fadeIn">
+          <div className="text-center mb-8">
+            <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-3">Admin Access</p>
+            <h2 className="text-[clamp(1.75rem,2.5vw,2.75rem)] font-semibold leading-tight">Enter Security PIN</h2>
+            <p className="text-sm text-blue-100/80 mt-3">PIN authentication is shared with Admin Mode for seamless access.</p>
+          </div>
+          <form onSubmit={handlePinSubmit} className="space-y-6">
+            <div className="space-y-3">
+              <label className="block text-xs uppercase tracking-wide text-blue-100/70">6-digit PIN</label>
               <input
                 type="password"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
-                className="input-field w-full text-2xl text-center tracking-widest"
+                className="input-field w-full text-3xl text-center tracking-[0.6em] bg-white/10 border-white/20 text-white placeholder:text-blue-100/30 focus:border-blue-300/70 focus:bg-white/15"
                 maxLength={6}
                 placeholder="••••••"
                 autoFocus
               />
             </div>
-            <button type="submit" className="btn-primary w-full">
-              Enter
-            </button>
-            <button
-              type="button"
-              onClick={onBack}
-              className="btn-secondary w-full mt-4"
-            >
-              Cancel
-            </button>
+            <div className="flex flex-col gap-3">
+              <button type="submit" className="btn-primary w-full py-3 rounded-full text-base">
+                Unlock Truck Loading
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                className="btn-secondary w-full py-3 rounded-full border border-white/25 bg-white/10 hover:bg-white/20"
+              >
+                Return to Menu
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -343,68 +349,71 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   // Truck Details View
   if (view === 'truck-details' && selectedTruck) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-blue-50 p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-4 py-8 sm:px-6 lg:px-8 text-white">
+        <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div className="rounded-3xl border border-white/12 bg-white/6 backdrop-blur-lg px-6 py-6 md:px-8 md:py-8 shadow-[0_40px_120px_-60px_rgba(37,99,235,0.8)]">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">🚛 {selectedTruck.truckName}</h1>
-                <p className="text-sm sm:text-base text-gray-600">Created on {formatDate(selectedTruck.createDate)}</p>
+                <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-2">Active Truck</p>
+                <h1 className="text-[clamp(2rem,3vw,3rem)] font-semibold leading-tight">🚛 {selectedTruck.truckName}</h1>
+                <p className="text-sm md:text-base text-blue-100/80 mt-2">Created on {formatDate(selectedTruck.createDate)}</p>
               </div>
-              <button onClick={() => { setView('main'); setSelectedTruck(null); }} className="btn-secondary whitespace-nowrap">
-                ← Back to Main
-              </button>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={handleExportTruck} className="btn-primary flex items-center justify-center gap-2">
-                <span>📊</span> Export Excel
-              </button>
-              {selectedTruck.status === 'Active' && (
-                <button 
-                  onClick={handleCloseTruck} 
-                  disabled={isLoading}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <>
-                      <span>✓</span> Mark as Departed
-                    </>
-                  )}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button onClick={() => { setView('main'); setSelectedTruck(null); }} className="rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/20 transition">
+                  ← Back to Main
                 </button>
-              )}
+                <button onClick={handleExportTruck} className="rounded-full bg-blue-500/90 px-5 py-2.5 text-sm font-semibold tracking-wide shadow-[0_18px_40px_-18px_rgba(59,130,246,0.9)] hover:bg-blue-500 transition flex items-center justify-center gap-2">
+                  <span>📊</span> Export Excel
+                </button>
+                {selectedTruck.status === 'Active' && (
+                  <button 
+                    onClick={handleCloseTruck} 
+                    disabled={isLoading}
+                    className="rounded-full border border-emerald-300/50 bg-emerald-500/20 px-5 py-2.5 text-sm font-semibold tracking-wide hover:bg-emerald-500/30 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <>
+                        <span>✓</span> Mark as Departed
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Truck Loads */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Loaded Items ({currentTruckLoads.length})
-            </h2>
+          <div className="rounded-3xl border border-white/12 bg-white/6 backdrop-blur px-6 py-6 md:px-8 md:py-7 shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+              <h2 className="text-2xl font-semibold">Loaded Items ({currentTruckLoads.length})</h2>
+              <p className="text-xs uppercase tracking-wide text-blue-100/70">
+                {currentTruckLoads.length > 0 ? 'Current load manifest' : 'Awaiting staged items'}
+              </p>
+            </div>
             
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
               </div>
             ) : currentTruckLoads.length === 0 ? (
-              <p className="text-gray-500 italic text-center py-8">No items loaded yet</p>
+              <p className="text-blue-100/75 italic text-center py-8">No items loaded yet</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                 {currentTruckLoads.map((load, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={index} className="rounded-2xl border border-white/12 bg-white/10 px-5 py-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                       <div>
-                        <span className="font-bold text-lg text-gray-800">Branch {load.branchNumber}</span>
-                        <span className="text-gray-600 ml-2">- {load.branchName}</span>
+                        <span className="text-lg font-semibold">Branch {load.branchNumber}</span>
+                        <span className="text-blue-100/70 ml-2">— {load.branchName}</span>
                       </div>
-                      <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
-                        Picked: {formatDate(load.pickDate)}
+                      <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 bg-white/10 text-blue-100/80">
+                        Picked {formatDate(load.pickDate)}
                       </span>
                     </div>
-                    <p className="text-gray-700">{getItemSummary(load)}</p>
+                    <p className="text-sm text-blue-100/85 leading-relaxed">{getItemSummary(load)}</p>
                   </div>
                 ))}
               </div>
@@ -418,50 +427,57 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   // Departed Trucks View
   if (view === 'departed-trucks') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-blue-50 p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-4 py-8 sm:px-6 lg:px-8 text-white">
+        <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">📋 Departed Trucks</h1>
-              <button onClick={() => { setView('main'); setDepartedTrucks([]); }} className="btn-secondary whitespace-nowrap">
+          <div className="rounded-3xl border border-white/12 bg-white/6 backdrop-blur-lg px-6 py-6 md:px-8 md:py-8 shadow-[0_40px_120px_-60px_rgba(37,99,235,0.8)]">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-2">Archive</p>
+                <h1 className="text-[clamp(2rem,3vw,3rem)] font-semibold leading-tight">📋 Departed Trucks</h1>
+                <p className="text-sm md:text-base text-blue-100/80 mt-2">Review trucks that have been marked as departed. You can still open their details.</p>
+              </div>
+              <button onClick={() => { setView('main'); setDepartedTrucks([]); }} className="rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/20 transition">
                 ← Back to Main
               </button>
             </div>
           </div>
 
           {/* Departed Trucks List */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              All Departed Trucks ({departedTrucks.length})
-            </h2>
+          <div className="rounded-3xl border border-white/12 bg-white/6 backdrop-blur px-6 py-6 md:px-8 md:py-7 shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+              <h2 className="text-2xl font-semibold">All Departed Trucks ({departedTrucks.length})</h2>
+              <p className="text-xs uppercase tracking-wide text-blue-100/70">
+                {departedTrucks.length > 0 ? 'Closed manifests available' : 'No departed trucks yet'}
+              </p>
+            </div>
             
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
               </div>
             ) : departedTrucks.length === 0 ? (
-              <p className="text-gray-500 italic text-center py-8">No departed trucks yet</p>
+              <p className="text-blue-100/75 italic text-center py-8">No departed trucks yet</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                 {departedTrucks.map((truck) => (
                   <div 
                     key={truck.truckID}
-                    className="p-4 rounded-lg border-2 border-gray-200 bg-gray-50"
+                    className="rounded-2xl border border-white/12 bg-white/10 px-5 py-5"
                   >
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                       <div>
-                        <h3 className="font-bold text-lg text-gray-800">{truck.truckName}</h3>
-                        <p className="text-sm text-gray-600">Created: {formatDate(truck.createDate)}</p>
+                        <h3 className="text-lg font-semibold text-white">{truck.truckName}</h3>
+                        <p className="text-xs uppercase tracking-wide text-blue-100/70 mt-1">Created {formatDate(truck.createDate)}</p>
                       </div>
-                      <span className="text-sm px-3 py-1 rounded-full font-medium bg-gray-100 text-gray-800">
+                      <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 bg-white/10 text-blue-100/80">
                         {truck.status}
                       </span>
                     </div>
                     
                     <button 
                       onClick={() => handleViewTruckDetails(truck)}
-                      className="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 py-2 px-3 rounded-lg font-medium transition-colors"
+                      className="w-full rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/18 transition"
                     >
                       View Details
                     </button>
@@ -477,13 +493,17 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
 
   // Main View
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-blue-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-4 py-8 sm:px-6 lg:px-8 text-white">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">🚛 Truck Loading</h1>
-            <button onClick={onBack} className="btn-secondary whitespace-nowrap">
+        <div className="rounded-3xl border border-white/12 bg-white/6 backdrop-blur-lg px-6 py-6 md:px-8 md:py-8 shadow-[0_40px_120px_-60px_rgba(37,99,235,0.8)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-5">
+            <div>
+              <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-2">Operations</p>
+              <h1 className="text-[clamp(2rem,3vw,3.25rem)] font-semibold leading-tight">🚛 Truck Loading</h1>
+              <p className="text-sm md:text-base text-blue-100/80">Assign staged items to active trucks</p>
+            </div>
+            <button onClick={onBack} className="rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/20 transition self-start md:self-center">
               ← Back to Menu
             </button>
           </div>
@@ -491,32 +511,32 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <button 
               onClick={() => setShowNewTruckModal(true)} 
-              className="btn-primary flex items-center justify-center gap-2"
+              className="rounded-2xl border border-white/20 bg-blue-500/80 px-5 py-4 text-sm font-semibold tracking-wide shadow-[0_18px_40px_-18px_rgba(59,130,246,0.9)] hover:bg-blue-500 transition flex items-center justify-center gap-2"
             >
               <span>➕</span> Create New Truck
             </button>
             <button 
               onClick={loadData} 
-              className="btn-secondary flex items-center justify-center gap-2"
+              className="rounded-2xl border border-white/20 bg-white/10 px-5 py-4 text-sm font-medium tracking-wide hover:bg-white/18 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {isLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
-                <span>🔄</span>
+                <span>↻</span>
               )}
               Refresh
             </button>
             <button 
               onClick={handleClearStagingArea} 
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              className="rounded-2xl border border-red-300/60 bg-red-500/20 px-5 py-4 text-sm font-semibold tracking-wide hover:bg-red-500/30 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || stagingItems.length === 0}
             >
               <span>🗑️</span> Clear Staging
             </button>
             <button 
               onClick={handleViewDepartedTrucks} 
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              className="rounded-2xl border border-purple-300/60 bg-purple-600/25 px-5 py-4 text-sm font-semibold tracking-wide hover:bg-purple-600/35 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               <span>📋</span> Departed Trucks
@@ -526,17 +546,20 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Staging Area */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              📦 Staging Area ({stagingItems.length})
-            </h2>
+          <div className="rounded-3xl border border-white/12 bg-white/6 backdrop-blur px-6 py-6 md:px-8 md:py-7 shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+              <h2 className="text-2xl font-semibold">📦 Staging Area ({stagingItems.length})</h2>
+              <p className="text-xs uppercase tracking-wide text-blue-100/70">
+                {selectedTruck ? `Loading into ${selectedTruck.truckName}` : 'Select a truck to start loading'}
+              </p>
+            </div>
             
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
               </div>
             ) : stagingItems.length === 0 ? (
-              <p className="text-gray-500 italic text-center py-8">No items in staging area</p>
+              <p className="text-blue-100/75 italic text-center py-8">No items in staging area</p>
             ) : (
               <>
                 <div className="mb-4">
@@ -544,13 +567,13 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                     <button 
                       onClick={handleInitiateLoad}
                       disabled={selectedItems.size === 0 || isLoading}
-                      className="btn-primary w-full mb-3 flex items-center justify-center gap-2"
+                      className="w-full rounded-full bg-blue-500/80 px-5 py-3 text-sm font-semibold tracking-wide shadow-[0_18px_40px_-18px_rgba(59,130,246,0.9)] hover:bg-blue-500 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       ) : (
                         <>
-                          <span>➡️</span>
+                          <span>↦</span>
                           Load {selectedItems.size} item(s) to {selectedTruck.truckName}
                         </>
                       )}
@@ -558,7 +581,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                   )}
                 </div>
                 
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                   {stagingItems.map((item) => {
                     const key = `${item.branchNumber}-${item.pickDate}`;
                     const isSelected = selectedItems.has(key);
@@ -567,22 +590,22 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                       <div 
                         key={key}
                         onClick={() => handleSelectItem(key)}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                        className={`rounded-2xl border cursor-pointer px-5 py-5 transition-all ${
                           isSelected 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'border-gray-200 bg-gray-50 hover:border-blue-300'
+                            ? 'border-blue-400/70 bg-blue-500/25 shadow-[0_20px_60px_-45px_rgba(59,130,246,0.9)]'
+                            : 'border-white/12 bg-white/10 hover:border-blue-300/60 hover:bg-blue-500/10'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                           <div>
-                            <span className="font-bold text-lg text-gray-800">Branch {item.branchNumber}</span>
-                            <span className="text-gray-600 ml-2">- {item.branchName}</span>
+                            <span className="text-lg font-semibold text-white">Branch {item.branchNumber}</span>
+                            <span className="text-blue-100/70 ml-2">— {item.branchName}</span>
                           </div>
-                          <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
+                          <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 bg-white/10 text-blue-100/80">
                             {formatDate(item.pickDate)}
                           </span>
                         </div>
-                        <p className="text-gray-700 text-sm">{getItemSummary(item)}</p>
+                        <p className="text-sm text-blue-100/85 leading-relaxed">{getItemSummary(item)}</p>
                       </div>
                     );
                   })}
@@ -592,41 +615,38 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
           </div>
 
           {/* Trucks List */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              🚚 Trucks ({trucks.length})
-            </h2>
+          <div className="rounded-3xl border border-white/12 bg-white/6 backdrop-blur px-6 py-6 md:px-8 md:py-7 shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+              <h2 className="text-2xl font-semibold">🚚 Trucks ({trucks.length})</h2>
+              <p className="text-xs uppercase tracking-wide text-blue-100/70">Only active trucks are shown</p>
+            </div>
             
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
               </div>
             ) : trucks.length === 0 ? (
-              <p className="text-gray-500 italic text-center py-8">No trucks created yet</p>
+              <p className="text-blue-100/75 italic text-center py-8">No trucks created yet</p>
             ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {trucks.map((truck) => {
                   const isSelected = selectedTruck?.truckID === truck.truckID;
                   
                   return (
                     <div 
                       key={truck.truckID}
-                      className={`p-4 rounded-lg border-2 transition-all ${
+                      className={`rounded-2xl border px-5 py-5 transition-all ${
                         isSelected 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-200 bg-gray-50'
+                          ? 'border-blue-400/70 bg-blue-500/25 shadow-[0_20px_60px_-45px_rgba(59,130,246,0.9)]'
+                          : 'border-white/12 bg-white/10'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                         <div>
-                          <h3 className="font-bold text-lg text-gray-800">{truck.truckName}</h3>
-                          <p className="text-sm text-gray-600">Created: {formatDate(truck.createDate)}</p>
+                          <h3 className="text-lg font-semibold text-white">{truck.truckName}</h3>
+                          <p className="text-xs uppercase tracking-wide text-blue-100/70 mt-1">Created {formatDate(truck.createDate)}</p>
                         </div>
-                        <span className={`text-sm px-3 py-1 rounded-full font-medium ${
-                          truck.status === 'Active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-emerald-300/60 bg-emerald-500/20 text-emerald-100">
                           {truck.status}
                         </span>
                       </div>
@@ -634,17 +654,17 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button 
                           onClick={() => setSelectedTruck(isSelected ? null : truck)}
-                          className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
+                          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition ${
                             isSelected 
-                              ? 'bg-blue-600 text-white' 
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              ? 'bg-blue-500 text-white shadow-[0_16px_30px_-18px_rgba(59,130,246,0.9)]'
+                              : 'border border-white/20 bg-white/10 text-white hover:bg-white/18'
                           }`}
                         >
                           {isSelected ? '✓ Selected' : 'Select'}
                         </button>
                         <button 
                           onClick={() => handleViewTruckDetails(truck)}
-                          className="flex-1 bg-blue-100 text-blue-700 hover:bg-blue-200 py-2 px-3 rounded-lg font-medium transition-colors"
+                          className="flex-1 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold tracking-wide hover:bg-white/18 transition"
                         >
                           View Details
                         </button>
@@ -660,33 +680,33 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
 
       {/* New Truck Modal */}
       {showNewTruckModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md animate-slideUp">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Create New Truck</h2>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl border border-white/12 bg-white/10 backdrop-blur-xl shadow-[0_40px_120px_-60px_rgba(37,99,235,0.85)] px-6 py-6 md:px-7 md:py-7 text-white animate-slideUp">
+            <h2 className="text-[clamp(1.5rem,2.2vw,2rem)] font-semibold mb-3">Create New Truck</h2>
             
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Truck Name (leave blank for auto-generated name)
+            <div className="mb-5 space-y-2">
+              <label className="block text-xs uppercase tracking-wide text-blue-100/70">
+                Truck Name <span className="text-blue-100/40">(optional)</span>
               </label>
               <input
                 type="text"
                 value={newTruckName}
                 onChange={(e) => setNewTruckName(e.target.value)}
                 placeholder="e.g., Morning Truck"
-                className="input-field w-full"
+                className="input-field w-full bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
               />
               {newTruckName.trim() === '' && (
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-xs uppercase tracking-wide text-blue-100/60">
                   Will auto-generate like "11/08 Truck #1"
                 </p>
               )}
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button 
                 onClick={handleCreateTruck}
                 disabled={isLoading}
-                className="btn-primary flex-1 flex items-center justify-center gap-2"
+                className="btn-primary flex-1 flex items-center justify-center gap-2 rounded-full py-3"
               >
                 {isLoading ? (
                   <>
@@ -699,7 +719,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               </button>
               <button 
                 onClick={() => { setShowNewTruckModal(false); setNewTruckName(''); }}
-                className="btn-secondary flex-1"
+                className="btn-secondary flex-1 rounded-full py-3 border border-white/20 bg-white/10 hover:bg-white/20"
                 disabled={isLoading}
               >
                 Cancel
@@ -711,29 +731,29 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
 
       {/* Load Quantities Modal */}
       {showQuantityModal && selectedTruck && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-4xl my-4 sm:my-8 animate-slideUp">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto animate-fadeIn">
+          <div className="w-full max-w-4xl rounded-3xl border border-white/12 bg-white/10 backdrop-blur-xl shadow-[0_40px_140px_-60px_rgba(37,99,235,0.85)] p-5 sm:p-7 my-6 text-white animate-slideUp">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-2">
               Load to {selectedTruck.truckName}
             </h2>
-            <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
-              Adjust quantities to load (defaults to maximum available)
+            <p className="text-sm sm:text-base text-blue-100/80 mb-4">
+              Adjust quantities for each staged entry. Inputs default to the maximum available.
             </p>
             
-            <div className="space-y-4 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto mb-4 sm:mb-6 pr-1 sm:pr-2">
+            <div className="space-y-4 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto mb-5 pr-1 sm:pr-2">
               {loadQuantities.map((item, index) => {
                 const originalItem = stagingItems.find(
                   si => si.branchNumber === item.branchNumber && si.pickDate === item.pickDate
                 );
                 
                 return (
-                  <div key={`${item.branchNumber}-${item.pickDate}`} className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
+                  <div key={`${item.branchNumber}-${item.pickDate}`} className="rounded-2xl border border-white/12 bg-white/10 px-4 sm:px-5 py-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                       <div>
-                        <h3 className="font-bold text-base sm:text-lg text-gray-800">
+                        <h3 className="font-semibold text-base sm:text-lg text-white">
                           Branch {item.branchNumber} - {item.branchName}
                         </h3>
-                        <p className="text-xs sm:text-sm text-gray-600">Picked: {formatDate(item.pickDate)}</p>
+                        <p className="text-xs sm:text-sm text-blue-100/70">Picked: {formatDate(item.pickDate)}</p>
                       </div>
                     </div>
                     
@@ -741,7 +761,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                       {/* Basic items */}
                       {originalItem && originalItem.pallets > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Pallets (max: {originalItem.pallets})
                           </label>
                           <input
@@ -751,14 +771,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={item.pallets === 0 ? '' : item.pallets}
                             onChange={(e) => updateLoadQuantity(index, 'pallets', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && originalItem.boxes > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Boxes (max: {originalItem.boxes})
                           </label>
                           <input
@@ -768,14 +788,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={item.boxes === 0 ? '' : item.boxes}
                             onChange={(e) => updateLoadQuantity(index, 'boxes', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && originalItem.rolls > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Rolls (max: {originalItem.rolls})
                           </label>
                           <input
@@ -785,7 +805,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={item.rolls === 0 ? '' : item.rolls}
                             onChange={(e) => updateLoadQuantity(index, 'rolls', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
@@ -793,7 +813,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                       {/* Advanced items */}
                       {originalItem && (originalItem.fiberglass ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Fiber-glass (max: {originalItem.fiberglass})
                           </label>
                           <input
@@ -803,14 +823,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.fiberglass && item.fiberglass > 0) ? item.fiberglass : ''}
                             onChange={(e) => updateLoadQuantity(index, 'fiberglass', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.waterHeaters ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Water Heaters (max: {originalItem.waterHeaters})
                           </label>
                           <input
@@ -820,14 +840,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.waterHeaters && item.waterHeaters > 0) ? item.waterHeaters : ''}
                             onChange={(e) => updateLoadQuantity(index, 'waterHeaters', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.waterRights ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Water Rights (max: {originalItem.waterRights})
                           </label>
                           <input
@@ -837,14 +857,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.waterRights && item.waterRights > 0) ? item.waterRights : ''}
                             onChange={(e) => updateLoadQuantity(index, 'waterRights', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.boxTub ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Box Tub (max: {originalItem.boxTub})
                           </label>
                           <input
@@ -854,14 +874,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.boxTub && item.boxTub > 0) ? item.boxTub : ''}
                             onChange={(e) => updateLoadQuantity(index, 'boxTub', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.copperPipe ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Copper Pipe (max: {originalItem.copperPipe})
                           </label>
                           <input
@@ -871,14 +891,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.copperPipe && item.copperPipe > 0) ? item.copperPipe : ''}
                             onChange={(e) => updateLoadQuantity(index, 'copperPipe', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.plasticPipe ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Plastic Pipe (max: {originalItem.plasticPipe})
                           </label>
                           <input
@@ -888,14 +908,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.plasticPipe && item.plasticPipe > 0) ? item.plasticPipe : ''}
                             onChange={(e) => updateLoadQuantity(index, 'plasticPipe', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.galvPipe ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             GALV Pipe (max: {originalItem.galvPipe})
                           </label>
                           <input
@@ -905,14 +925,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.galvPipe && item.galvPipe > 0) ? item.galvPipe : ''}
                             onChange={(e) => updateLoadQuantity(index, 'galvPipe', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.blackPipe ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Black Pipe (max: {originalItem.blackPipe})
                           </label>
                           <input
@@ -922,14 +942,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.blackPipe && item.blackPipe > 0) ? item.blackPipe : ''}
                             onChange={(e) => updateLoadQuantity(index, 'blackPipe', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.wood ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Wood (max: {originalItem.wood})
                           </label>
                           <input
@@ -939,14 +959,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.wood && item.wood > 0) ? item.wood : ''}
                             onChange={(e) => updateLoadQuantity(index, 'wood', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.galvStrut ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Galv STRUT (max: {originalItem.galvStrut})
                           </label>
                           <input
@@ -956,14 +976,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.galvStrut && item.galvStrut > 0) ? item.galvStrut : ''}
                             onChange={(e) => updateLoadQuantity(index, 'galvStrut', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.im540Tank ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             IM-540 TANK (max: {originalItem.im540Tank})
                           </label>
                           <input
@@ -973,14 +993,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.im540Tank && item.im540Tank > 0) ? item.im540Tank : ''}
                             onChange={(e) => updateLoadQuantity(index, 'im540Tank', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.im1250Tank ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             IM-1250 TANK (max: {originalItem.im1250Tank})
                           </label>
                           <input
@@ -990,14 +1010,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.im1250Tank && item.im1250Tank > 0) ? item.im1250Tank : ''}
                             onChange={(e) => updateLoadQuantity(index, 'im1250Tank', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
                       
                       {originalItem && (originalItem.mailBox ?? 0) > 0 && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
                             Mail Box (max: {originalItem.mailBox})
                           </label>
                           <input
@@ -1007,7 +1027,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             value={(item.mailBox && item.mailBox > 0) ? item.mailBox : ''}
                             onChange={(e) => updateLoadQuantity(index, 'mailBox', e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="input-field w-full text-sm"
+                            className="input-field w-full text-sm bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
                           />
                         </div>
                       )}
@@ -1016,8 +1036,8 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                     {/* Custom items - display only */}
                     {originalItem && originalItem.custom && originalItem.custom.trim() && (
                       <div className="mt-3 pt-3 border-t border-gray-200">
-                        <p className="text-xs font-medium text-gray-700 mb-1">Custom Items (loaded as-is):</p>
-                        <p className="text-sm text-gray-600">{originalItem.custom}</p>
+                        <p className="text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">Custom Items (loaded as-is)</p>
+                        <p className="text-sm text-blue-100/75">{originalItem.custom}</p>
                       </div>
                     )}
                   </div>

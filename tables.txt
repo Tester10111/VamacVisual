@@ -86,6 +86,7 @@ AdminPIN | 423323
 CompanyName | VAMAC CARMEL CHURCH - BR4
 CompanyAddress | 23323 BUSINESS CTR CT, RUTHER GLEN, VA 23546
 CompanyPhone | 804-321-3955
+Version | 0.6.7.0
 
 
 Sheet 6: "Trucks"

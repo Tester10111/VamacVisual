@@ -83,6 +83,9 @@ function handleRequest(e) {
         const status = e.parameter.status;
         result = updateTruckStatus(updateTruckID, status);
         break;
+      case 'getVersion':
+        result = getVersion();
+        break;
       default:
         result = { success: false, error: 'Invalid action' };
     }
@@ -376,6 +379,27 @@ function verifyPin(pin) {
   // Simple verification - compare with hard-coded PIN
   // This removes the need to read from Config sheet, improving performance
   return { success: true, valid: pin === validPin };
+}
+
+// Get version from Config sheet
+function getVersion() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSheet = ss.getSheetByName('Config');
+    const data = configSheet.getDataRange().getValues();
+    
+    // Find the Version key
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === 'Version') {
+        return { success: true, version: data[i][1] };
+      }
+    }
+    
+    // Default version if not found
+    return { success: true, version: 'Unknown' };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
 }
 
 // Get daily summary for PDF export
