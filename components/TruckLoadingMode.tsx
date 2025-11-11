@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { verifyPinLocal, verifyPin, getTrucks, createTruck, getStagingArea, loadToTruck, getTruckLoads, clearStagingArea, updateTruckStatus, type Truck, type StagingItem, type TruckLoad } from '@/lib/api';
+import { verifyPinLocal, verifyPin, getTrucks, createTruck, getStagingArea, loadToTruck, getTruckLoads, clearStagingArea, updateTruckStatus, getDepartedTruckLoadsByDate, type Truck, type StagingItem, type TruckLoad } from '@/lib/api';
 import { generateTruckExcel } from '@/lib/truckExcelGenerator';
+import { generateMasterSheetExcel } from '@/lib/masterSheetGenerator';
 import toast from 'react-hot-toast';
 
 interface TruckLoadingModeProps {
   onBack: () => void;
 }
 
-interface LoadQuantities extends StagingItem {}
+interface LoadQuantities extends StagingItem {
+  transferNumber?: string;
+}
 
 export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -26,6 +29,8 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [loadQuantities, setLoadQuantities] = useState<LoadQuantities[]>([]);
   const [departedTrucks, setDepartedTrucks] = useState<Truck[]>([]);
+  const [showMasterSheetModal, setShowMasterSheetModal] = useState(false);
+  const [masterSheetDate, setMasterSheetDate] = useState('');
 
   // Check if admin is cached (shared with AdminMode)
   useEffect(() => {
@@ -170,10 +175,13 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     }
   };
 
-  const updateLoadQuantity = (index: number, field: keyof StagingItem, value: string) => {
+  const updateLoadQuantity = (index: number, field: keyof StagingItem | 'transferNumber', value: string) => {
     const updated = [...loadQuantities];
-    // Handle empty string - don't convert to number
-    if (value === '') {
+    // Handle transfer number as string
+    if (field === 'transferNumber') {
+      (updated[index] as any)[field] = value;
+    } else if (value === '') {
+      // Handle empty string - don't convert to number
       (updated[index] as any)[field] = 0;
     } else {
       const numValue = parseInt(value);
@@ -197,19 +205,19 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     }
   };
 
-  const handleExportTruck = () => {
+  const handleExportTruck = async () => {
     if (!selectedTruck || currentTruckLoads.length === 0) {
       toast.error('No items in truck to export');
       return;
     }
 
     try {
-      generateTruckExcel({
-        truckName: selectedTruck.truckName,
-        loads: currentTruckLoads,
-        shippedBy: 'Taylor',
-        carrier: 'STEFI'
-      });
+      await generateTruckExcel(
+        selectedTruck.truckName,
+        currentTruckLoads,
+        'Taylor',
+        'STEFI'
+      );
       toast.success('Excel file generated successfully!');
     } catch (error) {
       console.error('Error generating Excel:', error);
@@ -254,6 +262,33 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     }
   };
 
+  const handleExportMasterSheet = async () => {
+    if (!masterSheetDate) {
+      toast.error('Please select a date');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      const loads = await getDepartedTruckLoadsByDate(masterSheetDate);
+      
+      if (loads.length === 0) {
+        toast.error('No departed truck loads found for this date');
+        return;
+      }
+      
+      generateMasterSheetExcel(loads, new Date(masterSheetDate));
+      toast.success('Master Sheet exported successfully!');
+      setShowMasterSheetModal(false);
+      setMasterSheetDate('');
+    } catch (error) {
+      console.error('Error exporting master sheet:', error);
+      toast.error('Failed to export master sheet');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleClearStagingArea = async () => {
     if (!confirm('Are you sure you want to clear the entire staging area? This will delete all staged items.')) {
       return;
@@ -272,9 +307,12 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     }
   };
 
-  // Format date nicely
+  // Format date nicely (prevent timezone shift)
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    if (!dateStr) return '';
+    // Parse date string as local date to prevent timezone shift
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('en-US', { 
       weekday: 'short', 
       month: 'short', 
@@ -541,6 +579,13 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
             >
               <span>📋</span> Departed Trucks
             </button>
+            <button 
+              onClick={() => setShowMasterSheetModal(true)} 
+              className="rounded-2xl border border-emerald-300/60 bg-emerald-600/25 px-5 py-4 text-sm font-semibold tracking-wide hover:bg-emerald-600/35 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isLoading}
+            >
+              <span>📊</span> Export Master Sheet
+            </button>
           </div>
         </div>
 
@@ -755,6 +800,20 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </h3>
                         <p className="text-xs sm:text-sm text-blue-100/70">Picked: {formatDate(item.pickDate)}</p>
                       </div>
+                    </div>
+                    
+                    {/* Transfer Number Field */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
+                        Transfer Number(s) (e.g., T1232322)
+                      </label>
+                      <input
+                        type="text"
+                        value={item.transferNumber || ''}
+                        onChange={(e) => updateLoadQuantity(index, 'transferNumber', e.target.value)}
+                        placeholder="Enter transfer number"
+                        className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 transition focus:border-blue-400/60 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
+                      />
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1069,6 +1128,55 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                   setLoadQuantities([]);
                 }}
                 className="btn-secondary flex-1"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Master Sheet Export Modal */}
+      {showMasterSheetModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="w-full max-w-lg rounded-3xl border border-white/12 bg-white/10 backdrop-blur-xl shadow-[0_40px_140px_-60px_rgba(16,185,129,0.85)] p-7 text-white animate-slideUp">
+            <h2 className="text-2xl font-semibold mb-3">Export Master Sheet</h2>
+            <p className="text-sm text-emerald-100/80 mb-5">
+              Select a date to export a consolidated master sheet of all departed trucks.
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-emerald-100/90 mb-2 uppercase tracking-wide">
+                Select Date
+              </label>
+              <input
+                type="date"
+                value={masterSheetDate}
+                onChange={(e) => setMasterSheetDate(e.target.value)}
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white transition focus:border-emerald-400/60 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
+              />
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleExportMasterSheet}
+                className="flex-1 rounded-full py-3 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 font-semibold shadow-lg transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={isLoading || !masterSheetDate}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>📊</span> Export Master Sheet
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={() => { setShowMasterSheetModal(false); setMasterSheetDate(''); }}
+                className="flex-1 rounded-full py-3 border border-white/20 bg-white/10 hover:bg-white/20 font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
                 Cancel

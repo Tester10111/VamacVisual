@@ -1,5 +1,4 @@
-import * as XLSX from 'xlsx';
-import { calculateShipDate } from './api';
+import ExcelJS from 'exceljs';
 
 export interface ExcelExportBranch {
   branchNumber: number;
@@ -7,7 +6,6 @@ export interface ExcelExportBranch {
   pallets: number;
   boxes: number;
   rolls: number;
-  // Advanced fields
   fiberglass?: number;
   waterHeaters?: number;
   waterRights?: number;
@@ -21,7 +19,6 @@ export interface ExcelExportBranch {
   im540Tank?: number;
   im1250Tank?: number;
   mailBox?: number;
-  // Custom items as string
   custom?: string;
 }
 
@@ -32,49 +29,40 @@ export interface ExcelExportData {
   carrier: string;
 }
 
-export function generateDailySummaryExcel(exportData: ExcelExportData) {
+function calculateShipDate(pickDate: Date): Date {
+  const ship = new Date(pickDate);
+  ship.setDate(ship.getDate() + 2);
+  return ship;
+}
+
+export async function generateDailySummaryExcel(exportData: ExcelExportData) {
   const { branches, date, shippedBy, carrier } = exportData;
   const shipDate = calculateShipDate(date);
   
-  // Create a new workbook
-  const wb = XLSX.utils.book_new();
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Daily Summary');
   
-  // Prepare data for the sheet
-  const data: any[][] = [];
-  
-  // Header section
-  data.push(['VAMAC CARMEL CHURCH - BR4']);
-  data.push(['23323 BUSINESS CTR CT']);
-  data.push(['RUTHER GLEN, VA 23546']);
-  data.push(['804-321-3955']);
-  data.push([]); // Empty row
-  data.push(['BRANCH 4 STEFI TRANSFERS']);
-  data.push([`Shipped By: ${shippedBy}`]);
-  data.push([`Carrier: ${carrier}`]);
-  data.push([`Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`]);
-  data.push([]); // Empty row
-  
-  // Define all possible items with their field names and display names
+  // Define all possible items
   const allItems = [
-    { field: 'pallets', label: 'Pallets', width: 10 },
-    { field: 'boxes', label: 'Boxes', width: 10 },
-    { field: 'rolls', label: 'Rolls', width: 10 },
-    { field: 'fiberglass', label: 'Fiber-glass', width: 12 },
-    { field: 'waterHeaters', label: 'Water Heaters', width: 14 },
-    { field: 'waterRights', label: 'Water Rights', width: 14 },
-    { field: 'boxTub', label: 'Box Tub', width: 12 },
-    { field: 'copperPipe', label: 'Copper Pipe', width: 12 },
-    { field: 'plasticPipe', label: 'Plastic Pipe', width: 12 },
-    { field: 'galvPipe', label: 'GALV Pipe', width: 12 },
-    { field: 'blackPipe', label: 'Black Pipe', width: 12 },
-    { field: 'wood', label: 'Wood', width: 10 },
-    { field: 'galvStrut', label: 'Galv STRUT', width: 12 },
-    { field: 'im540Tank', label: 'IM-540 TANK', width: 14 },
-    { field: 'im1250Tank', label: 'IM-1250 TANK', width: 14 },
-    { field: 'mailBox', label: 'Mail Box', width: 12 },
+    { field: 'pallets', label: 'Pallets' },
+    { field: 'boxes', label: 'Boxes' },
+    { field: 'rolls', label: 'Rolls' },
+    { field: 'fiberglass', label: 'Fiber-glass' },
+    { field: 'waterHeaters', label: 'Water Heaters' },
+    { field: 'waterRights', label: 'Water Rights' },
+    { field: 'boxTub', label: 'Box Tub' },
+    { field: 'copperPipe', label: 'Copper Pipe' },
+    { field: 'plasticPipe', label: 'Plastic Pipe' },
+    { field: 'galvPipe', label: 'GALV Pipe' },
+    { field: 'blackPipe', label: 'Black Pipe' },
+    { field: 'wood', label: 'Wood' },
+    { field: 'galvStrut', label: 'Galv STRUT' },
+    { field: 'im540Tank', label: 'IM-540 TANK' },
+    { field: 'im1250Tank', label: 'IM-1250 TANK' },
+    { field: 'mailBox', label: 'Mail Box' },
   ];
   
-  // Check which items have at least one branch with quantity > 0
+  // Filter active items
   const activeItems = allItems.filter(item => {
     return branches.some(branch => {
       const value = (branch as any)[item.field];
@@ -82,121 +70,198 @@ export function generateDailySummaryExcel(exportData: ExcelExportData) {
     });
   });
   
-  // Check if any branch has custom items
-  const hasCustomItems = branches.some(branch => branch.custom && branch.custom.trim());
+  // Parse custom items
+  const customItemSet = new Set<string>();
+  const customItemOrder: string[] = [];
   
-  // Build column headers dynamically
+  const parseCustomItems = (custom?: string) => {
+    if (!custom) return {};
+    return custom
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .reduce<Record<string, number>>((acc, entry) => {
+        const [name, qty] = entry.split(':');
+        const itemName = name?.trim();
+        const itemQty = Number((qty ?? '').trim()) || 0;
+        if (itemName) {
+          if (!customItemSet.has(itemName)) {
+            customItemSet.add(itemName);
+            customItemOrder.push(itemName);
+          }
+          acc[itemName] = itemQty;
+        }
+        return acc;
+      }, {});
+  };
+  
+  const branchCustomMaps = branches.map(branch => parseCustomItems(branch.custom));
+  
+  // Header section
+  let row = 1;
+  worksheet.getCell(`A${row}`).value = 'VAMAC CARMEL CHURCH - BR4';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).value = 'BRANCH 4 STEFI TRANSFERS';
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  row++;
+  
+  worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).value = `Shipped By: ${shippedBy}`;
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  row++;
+  
+  worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).value = `Carrier: ${carrier}`;
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  row++;
+  
+  worksheet.getCell(`A${row}`).value = '804-321-3955';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  row++;
+  
+  row++; // Empty row
+  
+  // Build headers
   const headers = ['Branch #', 'Branch Name'];
-  const colWidths = [{ wch: 10 }, { wch: 20 }]; // Branch # and Branch Name widths
+  activeItems.forEach(item => headers.push(item.label));
+  customItemOrder.forEach(itemName => headers.push(itemName));
+  headers.push('Transfer #', 'Received By', 'Receive Date');
   
-  activeItems.forEach(item => {
-    headers.push(item.label);
-    colWidths.push({ wch: item.width });
-  });
-  
-  if (hasCustomItems) {
-    headers.push('Custom Items');
-    colWidths.push({ wch: 30 });
-  }
-  
-  data.push(headers);
-  
-  // Branch data rows
-  branches.forEach(branch => {
-    const row: any[] = [branch.branchNumber, branch.branchName];
-    
-    // Add values for active items only
-    activeItems.forEach(item => {
-      const value = (branch as any)[item.field];
-      row.push(value || 0);
-    });
-    
-    // Add custom items if any branch has them
-    if (hasCustomItems) {
-      let customItemsText = '';
-      if (branch.custom && branch.custom.trim()) {
-        const items = branch.custom.split(',').map(item => {
-          const parts = item.split(':');
-          return `${parts[0]?.trim()}: ${parts[1]?.trim()}`;
-        });
-        customItemsText = items.join('; ');
-      }
-      row.push(customItemsText);
-    }
-    
-    data.push(row);
-  });
-  
-  // Add empty row before totals
-  data.push([]);
-  
-  // Calculate total pallet spaces
-  const totalPalletSpaces = branches.reduce((sum, b) => sum + (b.pallets || 0), 0);
-  
-  // Find the column index for Pallets in the active items
-  const palletColumnIndex = activeItems.findIndex(item => item.field === 'pallets');
-  
-  // Create totals row
-  const totalsRow: any[] = ['Total Pallet Spaces:', ''];
-  
-  // If pallets column exists, put the total in that column
-  if (palletColumnIndex !== -1) {
-    // Fill empty cells up to the pallets column
-    for (let i = 0; i < palletColumnIndex; i++) {
-      totalsRow.push('');
-    }
-    totalsRow.push(totalPalletSpaces);
-  } else {
-    // If no pallets column, just put it in the third column
-    totalsRow.push(totalPalletSpaces);
-  }
-  
-  data.push(totalsRow);
-  
-  // Add empty rows before disclaimer
-  data.push([]);
-  data.push([]);
-  
-  // Disclaimer
-  data.push(['DISCLAIMER:']);
-  data.push(['Inspect Shipment for Shortages/damages before the driver leaves.']);
-  data.push(['Note issues on BOL and contact the shipping branch.']);
-  data.push(['Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #']);
-  
-  // Create worksheet from data
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const tableStartRow = row;
   
   // Set column widths
-  ws['!cols'] = colWidths;
+  worksheet.getColumn(1).width = 16;
+  worksheet.getColumn(2).width = 22;
+  for (let i = 3; i <= headers.length; i++) {
+    worksheet.getColumn(i).width = 12;
+  }
   
-  // Style header rows (rows 1-9) - bold
-  const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-  for (let R = 0; R <= 9; R++) {
-    for (let C = 0; C <= headerRange.e.c; C++) {
-      const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-      if (!ws[cell_address]) continue;
-      if (!ws[cell_address].s) ws[cell_address].s = {};
-      ws[cell_address].s.font = { bold: true };
+  // Write headers
+  const headerRow = worksheet.getRow(row);
+  headerRow.values = headers;
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    cell.border = {
+      top: { style: 'medium' },
+      left: { style: 'medium' },
+      bottom: { style: 'medium' },
+      right: { style: 'medium' }
+    };
+  });
+  row++;
+  
+  // Write data rows
+  branches.forEach((branch, branchIndex) => {
+    const rowValues: any[] = [branch.branchNumber, branch.branchName];
+    
+    activeItems.forEach(item => {
+      rowValues.push((branch as any)[item.field] || 0);
+    });
+    
+    const customMap = branchCustomMaps[branchIndex];
+    customItemOrder.forEach(itemName => {
+      rowValues.push(customMap[itemName] || 0);
+    });
+    
+    rowValues.push('', '', ''); // Transfer #, Received By, Receive Date
+    
+    const dataRow = worksheet.getRow(row);
+    dataRow.values = rowValues;
+    dataRow.eachCell((cell) => {
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+    
+    row++;
+  });
+  
+  row++; // Empty row
+  
+  // Totals
+  const totalPalletSpaces = branches.reduce((sum, b) => sum + (b.pallets || 0), 0);
+  const totalsValues = Array(headers.length).fill('');
+  totalsValues[1] = 'Total Pallet Spaces';
+  const palletIndex = activeItems.findIndex(item => item.field === 'pallets');
+  if (palletIndex >= 0) {
+    totalsValues[2 + palletIndex] = totalPalletSpaces;
+  }
+  
+  const totalsRow = worksheet.getRow(row);
+  totalsRow.values = totalsValues;
+  totalsRow.eachCell((cell) => {
+    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    cell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'medium' },
+      right: { style: 'thin' }
+    };
+  });
+  
+  const tableEndRow = row;
+  
+  // Apply thick borders to table outline
+  for (let r = tableStartRow; r <= tableEndRow; r++) {
+    worksheet.getCell(r, 1).border = {
+      ...worksheet.getCell(r, 1).border,
+      left: { style: 'medium' }
+    };
+    worksheet.getCell(r, headers.length).border = {
+      ...worksheet.getCell(r, headers.length).border,
+      right: { style: 'medium' }
+    };
+  }
+  
+  row += 2; // Empty rows
+  
+  // Disclaimer
+  worksheet.getCell(`A${row}`).value = 'DISCLAIMER:';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 9 };
+  row++;
+  worksheet.getCell(`A${row}`).value = 'Inspect Shipment for Shortages/damages before the driver leaves.';
+  worksheet.getCell(`A${row}`).font = { size: 8 };
+  row++;
+  worksheet.getCell(`A${row}`).value = 'Note issues on BOL and contact the shipping branch.';
+  worksheet.getCell(`A${row}`).font = { size: 8 };
+  row++;
+  worksheet.getCell(`A${row}`).value = 'Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #';
+  worksheet.getCell(`A${row}`).font = { size: 8 };
+  
+  // Set print settings
+  worksheet.pageSetup = {
+    orientation: 'landscape',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    margins: {
+      left: 0.7,
+      right: 0.7,
+      top: 0.75,
+      bottom: 0.75,
+      header: 0.3,
+      footer: 0.3
     }
-  }
+  };
   
-  // Style column headers (row 10) - bold with background
-  const headerRowIndex = 10;
-  for (let C = 0; C <= headerRange.e.c; C++) {
-    const cell_address = XLSX.utils.encode_cell({ r: headerRowIndex, c: C });
-    if (!ws[cell_address]) continue;
-    if (!ws[cell_address].s) ws[cell_address].s = {};
-    ws[cell_address].s.font = { bold: true };
-    ws[cell_address].s.fill = { fgColor: { rgb: "4472C4" } };
-  }
-  
-  // Add the worksheet to the workbook
-  XLSX.utils.book_append_sheet(wb, ws, 'Daily Summary');
-  
-  // Generate filename
-  const filename = `VAMAC_Daily_Summary_${date.toISOString().split('T')[0]}.xlsx`;
-  
-  // Write the file
-  XLSX.writeFile(wb, filename);
+  // Generate and download file
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+  a.href = url;
+  a.download = `DailySummary_${dateStr}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
-

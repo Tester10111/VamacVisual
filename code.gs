@@ -86,6 +86,10 @@ function handleRequest(e) {
       case 'getVersion':
         result = getVersion();
         break;
+      case 'getDepartedTruckLoadsByDate':
+        const departDate = e.parameter.date;
+        result = getDepartedTruckLoadsByDate(departDate);
+        break;
       default:
         result = { success: false, error: 'Invalid action' };
     }
@@ -870,7 +874,8 @@ function loadToTruck(truckID, loads) {
         load.im1250Tank || 0,
         load.mailBox || 0,
         load.custom || '',
-        now
+        now,
+        load.transferNumber || ''
       ]);
     });
     
@@ -918,7 +923,8 @@ function getTruckLoads(truckID) {
           im1250Tank: data[i][18] || 0,
           mailBox: data[i][19] || 0,
           custom: data[i][20] || '',
-          loadedTimestamp: data[i][21]
+          loadedTimestamp: data[i][21],
+          transferNumber: data[i][22] || ''
         });
       }
     }
@@ -977,6 +983,87 @@ function updateTruckStatus(truckID, status) {
     return { success: false, error: 'Truck not found' };
   } catch (error) {
     Logger.log('Error in updateTruckStatus: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Get departed truck loads by date
+function getDepartedTruckLoadsByDate(date) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const trucksSheet = ss.getSheetByName('Trucks');
+    const loadsSheet = ss.getSheetByName('TruckLoads');
+    
+    if (!trucksSheet || !loadsSheet) {
+      return { success: false, error: 'Required sheets not found' };
+    }
+    
+    // Get all departed trucks for the specified date
+    const trucksData = trucksSheet.getDataRange().getValues();
+    const departedTruckIDs = [];
+    
+    for (let i = 1; i < trucksData.length; i++) {
+      const truckID = trucksData[i][0];
+      const createDate = trucksData[i][2];
+      const status = trucksData[i][4];
+      
+      if (status === 'Departed') {
+        let dateStr = '';
+        if (createDate && createDate.getTime && !isNaN(createDate.getTime())) {
+          dateStr = Utilities.formatDate(createDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        } else if (typeof createDate === 'string') {
+          dateStr = createDate.substring(0, 10);
+        }
+        
+        if (dateStr === date) {
+          departedTruckIDs.push(truckID);
+        }
+      }
+    }
+    
+    if (departedTruckIDs.length === 0) {
+      return { success: true, data: [] };
+    }
+    
+    // Get all loads for these trucks
+    const loadsData = loadsSheet.getDataRange().getValues();
+    const loads = [];
+    
+    for (let i = 1; i < loadsData.length; i++) {
+      const truckID = loadsData[i][0];
+      
+      if (departedTruckIDs.includes(truckID)) {
+        loads.push({
+          truckID: truckID,
+          branchNumber: loadsData[i][1],
+          branchName: loadsData[i][2],
+          pickDate: loadsData[i][3],
+          pallets: loadsData[i][4] || 0,
+          boxes: loadsData[i][5] || 0,
+          rolls: loadsData[i][6] || 0,
+          fiberglass: loadsData[i][7] || 0,
+          waterHeaters: loadsData[i][8] || 0,
+          waterRights: loadsData[i][9] || 0,
+          boxTub: loadsData[i][10] || 0,
+          copperPipe: loadsData[i][11] || 0,
+          plasticPipe: loadsData[i][12] || 0,
+          galvPipe: loadsData[i][13] || 0,
+          blackPipe: loadsData[i][14] || 0,
+          wood: loadsData[i][15] || 0,
+          galvStrut: loadsData[i][16] || 0,
+          im540Tank: loadsData[i][17] || 0,
+          im1250Tank: loadsData[i][18] || 0,
+          mailBox: loadsData[i][19] || 0,
+          custom: loadsData[i][20] || '',
+          loadedTimestamp: loadsData[i][21],
+          transferNumber: loadsData[i][22] || ''
+        });
+      }
+    }
+    
+    return { success: true, data: loads };
+  } catch (error) {
+    Logger.log('Error in getDepartedTruckLoadsByDate: ' + error);
     return { success: false, error: error.toString() };
   }
 }

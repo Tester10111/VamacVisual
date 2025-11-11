@@ -1,199 +1,272 @@
-import * as XLSX from 'xlsx';
-import { calculateShipDate } from './api';
+import ExcelJS from 'exceljs';
 import { TruckLoad } from './api';
 
-export interface TruckExcelData {
-  truckName: string;
-  loads: TruckLoad[];
-  shippedBy?: string;
-  carrier?: string;
+function calculateShipDate(pickDate: Date): Date {
+  const ship = new Date(pickDate);
+  ship.setDate(ship.getDate() + 2);
+  return ship;
 }
 
-export function generateTruckExcel(truckData: TruckExcelData) {
-  const { truckName, loads, shippedBy = 'Taylor', carrier = 'STEFI' } = truckData;
-  
+export async function generateTruckExcel(
+  truckName: string,
+  loads: TruckLoad[],
+  shippedBy: string = 'Taylor',
+  carrier: string = 'STEFI'
+) {
   // Group loads by pick date
-  const loadsByDate = loads.reduce((acc, load) => {
-    const pickDate = load.pickDate;
-    if (!acc[pickDate]) {
-      acc[pickDate] = [];
-    }
-    acc[pickDate].push(load);
-    return acc;
-  }, {} as Record<string, TruckLoad[]>);
+  const loadsByDate: Record<string, TruckLoad[]> = {};
   
-  const wb = XLSX.utils.book_new();
-  
-  // Create a sheet for each pick date
-  Object.entries(loadsByDate).forEach(([pickDate, dateLoads]) => {
-    const pickDateObj = new Date(pickDate);
-    const shipDate = calculateShipDate(pickDateObj);
-    
-    const ws_data: any[][] = [];
-    
-    // Company Info
-    ws_data.push(['VAMAC CARMEL CHURCH - BR4']);
-    ws_data.push(['23323 BUSINESS CTR CT']);
-    ws_data.push(['RUTHER GLEN, VA 23546']);
-    ws_data.push(['804-321-3955']);
-    ws_data.push([]); // Empty row
-    
-    // Main Title
-    ws_data.push(['BRANCH 4 STEFI TRANSFERS']);
-    ws_data.push([`Truck: ${truckName}`]);
-    ws_data.push([`Shipped By: ${shippedBy}`]);
-    ws_data.push([`Carrier: ${carrier}`]);
-    ws_data.push([`Pick Date: ${pickDateObj.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })}`]);
-    ws_data.push([`Ship Date: ${shipDate.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })}`]);
-    ws_data.push([]); // Empty row
-    
-    // Define all possible items with field names
-    const allItems = [
-      { field: 'pallets', label: 'Pallets', width: 10 },
-      { field: 'boxes', label: 'Boxes', width: 10 },
-      { field: 'rolls', label: 'Rolls', width: 10 },
-      { field: 'fiberglass', label: 'Fiber-glass', width: 12 },
-      { field: 'waterHeaters', label: 'Water Heaters', width: 14 },
-      { field: 'waterRights', label: 'Water Rights', width: 14 },
-      { field: 'boxTub', label: 'Box Tub', width: 12 },
-      { field: 'copperPipe', label: 'Copper Pipe', width: 12 },
-      { field: 'plasticPipe', label: 'Plastic Pipe', width: 12 },
-      { field: 'galvPipe', label: 'GALV Pipe', width: 12 },
-      { field: 'blackPipe', label: 'Black Pipe', width: 12 },
-      { field: 'wood', label: 'Wood', width: 10 },
-      { field: 'galvStrut', label: 'Galv STRUT', width: 12 },
-      { field: 'im540Tank', label: 'IM-540 TANK', width: 14 },
-      { field: 'im1250Tank', label: 'IM-1250 TANK', width: 14 },
-      { field: 'mailBox', label: 'Mail Box', width: 12 },
-    ];
-    
-    // Check which items have at least one load with quantity > 0
-    const activeItems = allItems.filter(item => {
-      return dateLoads.some(load => {
-        const value = (load as any)[item.field];
-        return value && value > 0;
-      });
-    });
-    
-    // Check if any load has custom items
-    const hasCustomItems = dateLoads.some(load => load.custom && load.custom.trim());
-    
-    // Build column headers dynamically
-    const headers = ['Branch #', 'Branch Name'];
-    const colWidths = [{ wch: 10 }, { wch: 20 }];
-    
-    activeItems.forEach(item => {
-      headers.push(item.label);
-      colWidths.push({ wch: item.width });
-    });
-    
-    if (hasCustomItems) {
-      headers.push('Custom Items');
-      colWidths.push({ wch: 30 });
+  loads.forEach(load => {
+    let pickDate = load.pickDate;
+    if (typeof pickDate === 'string') {
+      pickDate = pickDate.split('T')[0];
     }
     
-    ws_data.push(headers);
-    
-    // Data rows
-    let totalPalletSpaces = 0;
-    
-    dateLoads.forEach(load => {
-      const row: any[] = [load.branchNumber, load.branchName];
-      
-      activeItems.forEach(item => {
-        const value = (load as any)[item.field];
-        row.push(value || 0);
-      });
-      
-      if (hasCustomItems) {
-        let customItemsText = '';
-        if (load.custom && load.custom.trim()) {
-          const items = load.custom.split(',').map(item => {
-            const parts = item.split(':');
-            return `${parts[0]?.trim()}: ${parts[1]?.trim()}`;
-          });
-          customItemsText = items.join('; ');
-        }
-        row.push(customItemsText);
-      }
-      
-      ws_data.push(row);
-      totalPalletSpaces += load.pallets || 0;
-    });
-    
-    // Add totals
-    ws_data.push([]);
-    
-    const palletColumnIndex = activeItems.findIndex(item => item.field === 'pallets');
-    const totalsRow: any[] = ['Total Pallet Spaces:', ''];
-    
-    if (palletColumnIndex !== -1) {
-      for (let i = 0; i < palletColumnIndex; i++) {
-        totalsRow.push('');
-      }
-      totalsRow.push(totalPalletSpaces);
-    } else {
-      totalsRow.push(totalPalletSpaces);
+    if (!loadsByDate[pickDate]) {
+      loadsByDate[pickDate] = [];
     }
-    
-    ws_data.push(totalsRow);
-    
-    // Add disclaimer
-    ws_data.push([]);
-    ws_data.push([]);
-    ws_data.push(['DISCLAIMER:']);
-    ws_data.push(['Inspect Shipment for Shortages/damages before the driver leaves.']);
-    ws_data.push(['Note issues on BOL and contact the shipping branch.']);
-    ws_data.push(['Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #']);
-    
-    // Create worksheet
-    const ws = XLSX.utils.aoa_to_sheet(ws_data);
-    ws['!cols'] = colWidths;
-    
-    // Style headers
-    const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    const tableHeaderRowIndex = ws_data.findIndex(row => row[0] === 'Branch #');
-    
-    // Bold company info and main title (first 11 rows)
-    for (let R = 0; R <= 11; R++) {
-      for (let C = 0; C <= headerRange.e.c; C++) {
-        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cell_address]) continue;
-        if (!ws[cell_address].s) ws[cell_address].s = {};
-        ws[cell_address].s.font = { bold: true };
-      }
-    }
-    
-    // Bold table headers
-    if (tableHeaderRowIndex !== -1) {
-      for (let C = 0; C <= headerRange.e.c; C++) {
-        const cell_address = XLSX.utils.encode_cell({ r: tableHeaderRowIndex, c: C });
-        if (!ws[cell_address]) continue;
-        if (!ws[cell_address].s) ws[cell_address].s = {};
-        ws[cell_address].s.font = { bold: true };
-        ws[cell_address].s.fill = { fgColor: { rgb: "4472C4" } };
-      }
-    }
-    
-    // Create sheet name from pick date
-    const sheetName = `Picked ${pickDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    loadsByDate[pickDate].push(load);
   });
   
-  // Generate filename
-  const filename = `Truck_${truckName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+  const workbook = new ExcelJS.Workbook();
+  const dateKeys = Object.keys(loadsByDate);
   
-  // Write the file
-  XLSX.writeFile(wb, filename);
+  for (const pickDate of dateKeys) {
+    const dateLoads = loadsByDate[pickDate];
+    const pickDateObj = new Date(pickDate + 'T12:00:00');
+    const shipDate = calculateShipDate(pickDateObj);
+    
+    const sheetName = `Picked ${pickDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    const worksheet = workbook.addWorksheet(sheetName);
+    
+    // Define all possible items
+    const allItems = [
+      { field: 'pallets', label: 'Pallets' },
+      { field: 'boxes', label: 'Boxes' },
+      { field: 'rolls', label: 'Rolls' },
+      { field: 'fiberglass', label: 'Fiber-glass' },
+      { field: 'waterHeaters', label: 'Water Heaters' },
+      { field: 'waterRights', label: 'Water Rights' },
+      { field: 'boxTub', label: 'Box Tub' },
+      { field: 'copperPipe', label: 'Copper Pipe' },
+      { field: 'plasticPipe', label: 'Plastic Pipe' },
+      { field: 'galvPipe', label: 'GALV Pipe' },
+      { field: 'blackPipe', label: 'Black Pipe' },
+      { field: 'wood', label: 'Wood' },
+      { field: 'galvStrut', label: 'Galv STRUT' },
+      { field: 'im540Tank', label: 'IM-540 TANK' },
+      { field: 'im1250Tank', label: 'IM-1250 TANK' },
+      { field: 'mailBox', label: 'Mail Box' },
+    ];
+    
+    // Filter active items
+    const activeItems = allItems.filter(item => {
+      return dateLoads.some(load => (load as any)[item.field] > 0);
+    });
+    
+    // Parse custom items
+    const customItemSet = new Set<string>();
+    const customItemOrder: string[] = [];
+    
+    const parseCustomItems = (custom?: string) => {
+      if (!custom) return {};
+      return custom
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean)
+        .reduce<Record<string, number>>((acc, entry) => {
+          const [name, qty] = entry.split(':');
+          const itemName = name?.trim();
+          const itemQty = Number((qty ?? '').trim()) || 0;
+          if (itemName) {
+            if (!customItemSet.has(itemName)) {
+              customItemSet.add(itemName);
+              customItemOrder.push(itemName);
+            }
+            acc[itemName] = itemQty;
+          }
+          return acc;
+        }, {});
+    };
+    
+    const loadCustomMaps = dateLoads.map(load => parseCustomItems(load.custom));
+    
+    // Header section
+    let row = 1;
+    worksheet.getCell(`A${row}`).value = 'VAMAC CARMEL CHURCH - BR4';
+    worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+    worksheet.getCell(`F${row}`).value = 'BRANCH 4 STEFI TRANSFERS';
+    worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+    row++;
+    
+    worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
+    worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+    worksheet.getCell(`F${row}`).value = `Truck: ${truckName}`;
+    worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+    row++;
+    
+    worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
+    worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+    worksheet.getCell(`F${row}`).value = `Shipped By: ${shippedBy}`;
+    worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+    row++;
+    
+    worksheet.getCell(`A${row}`).value = '804-321-3955';
+    worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+    worksheet.getCell(`F${row}`).value = `Carrier: ${carrier}`;
+    worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+    row++;
+    
+    worksheet.getCell(`F${row}`).value = `Pick Date: ${pickDateObj.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}`;
+    worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+    row++;
+    
+    worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}`;
+    worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+    row++;
+    
+    row++; // Empty row
+    
+    // Build headers
+    const headers = ['Branch #', 'Branch Name'];
+    activeItems.forEach(item => headers.push(item.label));
+    customItemOrder.forEach(itemName => headers.push(itemName));
+    headers.push('Transfer #', 'Received By', 'Receive Date');
+    
+    const tableStartRow = row;
+    
+    // Set column widths
+    worksheet.getColumn(1).width = 16;
+    worksheet.getColumn(2).width = 22;
+    for (let i = 3; i <= headers.length; i++) {
+      worksheet.getColumn(i).width = 12;
+    }
+    
+    // Write headers
+    const headerRow = worksheet.getRow(row);
+    headerRow.values = headers;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'medium' },
+        left: { style: 'medium' },
+        bottom: { style: 'medium' },
+        right: { style: 'medium' }
+      };
+    });
+    row++;
+    
+    // Write data rows
+    let totalPalletSpaces = 0;
+    
+    dateLoads.forEach((load, loadIndex) => {
+      const rowValues: any[] = [load.branchNumber, load.branchName];
+      
+      activeItems.forEach(item => {
+        rowValues.push((load as any)[item.field] || 0);
+      });
+      
+      const customMap = loadCustomMaps[loadIndex];
+      customItemOrder.forEach(itemName => {
+        rowValues.push(customMap[itemName] || 0);
+      });
+      
+      rowValues.push((load as any).transferNumber || '', '', ''); // Transfer #, Received By, Receive Date
+      
+      const dataRow = worksheet.getRow(row);
+      dataRow.values = rowValues;
+      dataRow.eachCell((cell) => {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      
+      totalPalletSpaces += load.pallets || 0;
+      row++;
+    });
+    
+    row++; // Empty row
+    
+    // Totals
+    const totalsValues = Array(headers.length).fill('');
+    totalsValues[1] = 'Total Pallet Spaces';
+    const palletIndex = activeItems.findIndex(item => item.field === 'pallets');
+    if (palletIndex >= 0) {
+      totalsValues[2 + palletIndex] = totalPalletSpaces;
+    }
+    
+    const totalsRow = worksheet.getRow(row);
+    totalsRow.values = totalsValues;
+    totalsRow.eachCell((cell) => {
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'medium' },
+        right: { style: 'thin' }
+      };
+    });
+    
+    const tableEndRow = row;
+    
+    // Apply thick borders to table outline
+    for (let r = tableStartRow; r <= tableEndRow; r++) {
+      worksheet.getCell(r, 1).border = {
+        ...worksheet.getCell(r, 1).border,
+        left: { style: 'medium' }
+      };
+      worksheet.getCell(r, headers.length).border = {
+        ...worksheet.getCell(r, headers.length).border,
+        right: { style: 'medium' }
+      };
+    }
+    
+    row += 2; // Empty rows
+    
+    // Disclaimer
+    worksheet.getCell(`A${row}`).value = 'DISCLAIMER:';
+    worksheet.getCell(`A${row}`).font = { bold: true, size: 9 };
+    row++;
+    worksheet.getCell(`A${row}`).value = 'Inspect Shipment for Shortages/damages before the driver leaves.';
+    worksheet.getCell(`A${row}`).font = { size: 8 };
+    row++;
+    worksheet.getCell(`A${row}`).value = 'Note issues on BOL and contact the shipping branch.';
+    worksheet.getCell(`A${row}`).font = { size: 8 };
+    row++;
+    worksheet.getCell(`A${row}`).value = 'Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #';
+    worksheet.getCell(`A${row}`).font = { size: 8 };
+    
+    // Set print settings
+    worksheet.pageSetup = {
+      orientation: 'landscape',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: {
+        left: 0.7,
+        right: 0.7,
+        top: 0.75,
+        bottom: 0.75,
+        header: 0.3,
+        footer: 0.3
+      }
+    };
+  }
+  
+  // Generate and download file
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const filename = `Truck_${truckName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
-

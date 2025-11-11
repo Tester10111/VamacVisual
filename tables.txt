@@ -125,9 +125,10 @@ Columns:
 - T: MailBox (number)
 - U: Custom (text) - Custom items and quantities
 - V: LoadedTimestamp (full date and time when loaded to truck)
+- W: TransferNumber (text) - Transfer number(s) for the shipment (e.g., "T1232322")
 
 Sample Data:
-1 | 5 | Petersburg | 2025-11-05 | 3 | 10 | 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | "Special Pipe:5" | 2025-11-05 14:30:00
+1 | 5 | Petersburg | 2025-11-05 | 3 | 10 | 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | "Special Pipe:5" | 2025-11-05 14:30:00 | "T1232322"
 
 Note: TruckLoads records items moved from staging area to trucks.
 The staging area shows: StageRecords (grouped by branch+pickDate) MINUS TruckLoads (grouped by branch+pickDate)

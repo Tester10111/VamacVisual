@@ -112,6 +112,7 @@ export interface StagingItem {
 export interface TruckLoad extends StagingItem {
   truckID: number;
   loadedTimestamp: Date | string;
+  transferNumber?: string;
 }
 
 async function fetchFromAppsScript(action: string, params: Record<string, any> = {}) {
@@ -271,5 +272,10 @@ export async function clearStagingArea(): Promise<void> {
 
 export async function updateTruckStatus(truckID: number, status: string): Promise<void> {
   await fetchFromAppsScript('updateTruckStatus', { truckID, status });
+}
+
+export async function getDepartedTruckLoadsByDate(date: string): Promise<TruckLoad[]> {
+  const result = await fetchFromAppsScript('getDepartedTruckLoadsByDate', { date });
+  return result.data || [];
 }
 
