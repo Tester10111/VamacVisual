@@ -43,130 +43,157 @@ function calculateShipDate(departedDate: Date): Date {
 }
 
 export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate: Date) {
-  // Aggregate loads by branch
-  const branchMap = new Map<number, AggregatedBranch>();
+  // Group loads by pick date
+  const loadsByPickDate: Record<string, TruckLoad[]> = {};
   
   loads.forEach(load => {
-    const key = load.branchNumber;
-    
-    if (!branchMap.has(key)) {
-      branchMap.set(key, {
-        branchNumber: load.branchNumber,
-        branchName: load.branchName,
-        pallets: 0,
-        boxes: 0,
-        rolls: 0,
-        fiberglass: 0,
-        waterHeaters: 0,
-        waterRights: 0,
-        boxTub: 0,
-        copperPipe: 0,
-        plasticPipe: 0,
-        galvPipe: 0,
-        blackPipe: 0,
-        wood: 0,
-        galvStrut: 0,
-        im540Tank: 0,
-        im1250Tank: 0,
-        mailBox: 0,
-        customItems: {},
-        transferNumbers: []
-      });
+    let pickDate = load.pickDate;
+    if (typeof pickDate === 'string') {
+      pickDate = pickDate.split('T')[0];
     }
     
-    const branch = branchMap.get(key)!;
-    
-    // Aggregate quantities
-    branch.pallets += load.pallets || 0;
-    branch.boxes += load.boxes || 0;
-    branch.rolls += load.rolls || 0;
-    branch.fiberglass += load.fiberglass || 0;
-    branch.waterHeaters += load.waterHeaters || 0;
-    branch.waterRights += load.waterRights || 0;
-    branch.boxTub += load.boxTub || 0;
-    branch.copperPipe += load.copperPipe || 0;
-    branch.plasticPipe += load.plasticPipe || 0;
-    branch.galvPipe += load.galvPipe || 0;
-    branch.blackPipe += load.blackPipe || 0;
-    branch.wood += load.wood || 0;
-    branch.galvStrut += load.galvStrut || 0;
-    branch.im540Tank += load.im540Tank || 0;
-    branch.im1250Tank += load.im1250Tank || 0;
-    branch.mailBox += load.mailBox || 0;
-    
-    // Aggregate custom items
-    if (load.custom) {
-      const customPairs = load.custom.split(',').map(s => s.trim()).filter(Boolean);
-      customPairs.forEach(pair => {
-        const [name, qty] = pair.split(':');
-        const itemName = name?.trim();
-        const itemQty = Number((qty ?? '').trim()) || 0;
-        if (itemName) {
-          branch.customItems[itemName] = (branch.customItems[itemName] || 0) + itemQty;
-        }
-      });
+    if (!loadsByPickDate[pickDate]) {
+      loadsByPickDate[pickDate] = [];
     }
-    
-    // Collect transfer numbers
-    if (load.transferNumber && !branch.transferNumbers.includes(load.transferNumber)) {
-      branch.transferNumbers.push(load.transferNumber);
-    }
+    loadsByPickDate[pickDate].push(load);
   });
-  
-  // Convert to array and filter branches with at least one item
-  const branches = Array.from(branchMap.values()).filter(branch => {
-    return branch.pallets > 0 || branch.boxes > 0 || branch.rolls > 0 ||
-           branch.fiberglass > 0 || branch.waterHeaters > 0 || branch.waterRights > 0 ||
-           branch.boxTub > 0 || branch.copperPipe > 0 || branch.plasticPipe > 0 ||
-           branch.galvPipe > 0 || branch.blackPipe > 0 || branch.wood > 0 ||
-           branch.galvStrut > 0 || branch.im540Tank > 0 || branch.im1250Tank > 0 ||
-           branch.mailBox > 0 || Object.keys(branch.customItems).length > 0;
-  });
-  
-  // Sort by branch number
-  branches.sort((a, b) => a.branchNumber - b.branchNumber);
   
   const workbook = new ExcelJS.Workbook();
-  const shipDate = calculateShipDate(departedDate);
+  const pickDates = Object.keys(loadsByPickDate).sort(); // Sort pick dates chronologically
   
-  // Define all possible items
-  const allItems = [
-    { field: 'pallets', label: 'Pallets' },
-    { field: 'boxes', label: 'Boxes' },
-    { field: 'rolls', label: 'Rolls' },
-    { field: 'fiberglass', label: 'Fiber-glass' },
-    { field: 'waterHeaters', label: 'Water Heaters' },
-    { field: 'waterRights', label: 'Water Rights' },
-    { field: 'boxTub', label: 'Box Tub' },
-    { field: 'copperPipe', label: 'Copper Pipe' },
-    { field: 'plasticPipe', label: 'Plastic Pipe' },
-    { field: 'galvPipe', label: 'GALV Pipe' },
-    { field: 'blackPipe', label: 'Black Pipe' },
-    { field: 'wood', label: 'Wood' },
-    { field: 'galvStrut', label: 'Galv STRUT' },
-    { field: 'im540Tank', label: 'IM-540 TANK' },
-    { field: 'im1250Tank', label: 'IM-1250 TANK' },
-    { field: 'mailBox', label: 'Mail Box' },
-  ];
+  // Process each pick date separately
+  for (const pickDateStr of pickDates) {
+    const pickDateLoads = loadsByPickDate[pickDateStr];
+    
+    // Parse pick date and calculate ship date from it
+    const [year, month, day] = pickDateStr.split('-').map(Number);
+    const pickDate = new Date(year, month - 1, day);
+    const shipDate = calculateShipDate(pickDate);
+    
+    // Aggregate loads by branch for this pick date
+    const branchMap = new Map<number, AggregatedBranch>();
+    
+    pickDateLoads.forEach(load => {
+      const key = load.branchNumber;
+      
+      if (!branchMap.has(key)) {
+        branchMap.set(key, {
+          branchNumber: load.branchNumber,
+          branchName: load.branchName,
+          pallets: 0,
+          boxes: 0,
+          rolls: 0,
+          fiberglass: 0,
+          waterHeaters: 0,
+          waterRights: 0,
+          boxTub: 0,
+          copperPipe: 0,
+          plasticPipe: 0,
+          galvPipe: 0,
+          blackPipe: 0,
+          wood: 0,
+          galvStrut: 0,
+          im540Tank: 0,
+          im1250Tank: 0,
+          mailBox: 0,
+          customItems: {},
+          transferNumbers: []
+        });
+      }
+      
+      const branch = branchMap.get(key)!;
+      
+      // Aggregate quantities
+      branch.pallets += load.pallets || 0;
+      branch.boxes += load.boxes || 0;
+      branch.rolls += load.rolls || 0;
+      branch.fiberglass += load.fiberglass || 0;
+      branch.waterHeaters += load.waterHeaters || 0;
+      branch.waterRights += load.waterRights || 0;
+      branch.boxTub += load.boxTub || 0;
+      branch.copperPipe += load.copperPipe || 0;
+      branch.plasticPipe += load.plasticPipe || 0;
+      branch.galvPipe += load.galvPipe || 0;
+      branch.blackPipe += load.blackPipe || 0;
+      branch.wood += load.wood || 0;
+      branch.galvStrut += load.galvStrut || 0;
+      branch.im540Tank += load.im540Tank || 0;
+      branch.im1250Tank += load.im1250Tank || 0;
+      branch.mailBox += load.mailBox || 0;
+      
+      // Aggregate custom items
+      if (load.custom) {
+        const customPairs = load.custom.split(',').map(s => s.trim()).filter(Boolean);
+        customPairs.forEach(pair => {
+          const [name, qty] = pair.split(':');
+          const itemName = name?.trim();
+          const itemQty = Number((qty ?? '').trim()) || 0;
+          if (itemName) {
+            branch.customItems[itemName] = (branch.customItems[itemName] || 0) + itemQty;
+          }
+        });
+      }
+      
+      // Collect transfer numbers
+      if (load.transferNumber && !branch.transferNumbers.includes(load.transferNumber)) {
+        branch.transferNumbers.push(load.transferNumber);
+      }
+    });
+    
+    // Convert to array and filter branches with at least one item
+    const branches = Array.from(branchMap.values()).filter(branch => {
+      return branch.pallets > 0 || branch.boxes > 0 || branch.rolls > 0 ||
+             branch.fiberglass > 0 || branch.waterHeaters > 0 || branch.waterRights > 0 ||
+             branch.boxTub > 0 || branch.copperPipe > 0 || branch.plasticPipe > 0 ||
+             branch.galvPipe > 0 || branch.blackPipe > 0 || branch.wood > 0 ||
+             branch.galvStrut > 0 || branch.im540Tank > 0 || branch.im1250Tank > 0 ||
+             branch.mailBox > 0 || Object.keys(branch.customItems).length > 0;
+    });
+    
+    // Sort by branch number
+    branches.sort((a, b) => a.branchNumber - b.branchNumber);
+    
+    if (branches.length === 0) continue; // Skip if no branches for this pick date
   
-  // Collect all unique custom item names
-  const customItemSet = new Set<string>();
-  branches.forEach(branch => {
-    Object.keys(branch.customItems).forEach(itemName => customItemSet.add(itemName));
-  });
-  const customItemOrder = Array.from(customItemSet);
-  
-  // Filter active items
-  const activeItems = allItems.filter(item => {
-    return branches.some(branch => (branch as any)[item.field] > 0);
-  });
-  
-  // Create Master Sheet
-  await createMasterSheet(workbook, branches, activeItems, customItemOrder, departedDate, shipDate);
-  
-  // Create individual branch sheets
-  for (const branch of branches) {
-    await createBranchSheet(workbook, branch, activeItems, customItemOrder, departedDate, shipDate);
+    // Define all possible items
+    const allItems = [
+      { field: 'pallets', label: 'Pallets' },
+      { field: 'boxes', label: 'Boxes' },
+      { field: 'rolls', label: 'Rolls' },
+      { field: 'fiberglass', label: 'Fiber-glass' },
+      { field: 'waterHeaters', label: 'Water Heaters' },
+      { field: 'waterRights', label: 'Water Rights' },
+      { field: 'boxTub', label: 'Box Tub' },
+      { field: 'copperPipe', label: 'Copper Pipe' },
+      { field: 'plasticPipe', label: 'Plastic Pipe' },
+      { field: 'galvPipe', label: 'GALV Pipe' },
+      { field: 'blackPipe', label: 'Black Pipe' },
+      { field: 'wood', label: 'Wood' },
+      { field: 'galvStrut', label: 'Galv STRUT' },
+      { field: 'im540Tank', label: 'IM-540 TANK' },
+      { field: 'im1250Tank', label: 'IM-1250 TANK' },
+      { field: 'mailBox', label: 'Mail Box' },
+    ];
+    
+    // Collect all unique custom item names
+    const customItemSet = new Set<string>();
+    branches.forEach(branch => {
+      Object.keys(branch.customItems).forEach(itemName => customItemSet.add(itemName));
+    });
+    const customItemOrder = Array.from(customItemSet);
+    
+    // Filter active items
+    const activeItems = allItems.filter(item => {
+      return branches.some(branch => (branch as any)[item.field] > 0);
+    });
+    
+    // Create Master Sheet for this pick date
+    await createMasterSheet(workbook, branches, activeItems, customItemOrder, pickDate, shipDate, pickDateStr);
+    
+    // Create individual branch sheets for this pick date
+    for (const branch of branches) {
+      await createBranchSheet(workbook, branch, activeItems, customItemOrder, pickDate, shipDate, pickDateStr);
+    }
   }
   
   // Generate and download file
@@ -186,31 +213,49 @@ async function createMasterSheet(
   branches: AggregatedBranch[],
   activeItems: any[],
   customItemOrder: string[],
-  departedDate: Date,
-  shipDate: Date
+  pickDate: Date,
+  shipDate: Date,
+  pickDateStr: string
 ) {
-  const worksheet = workbook.addWorksheet('Master Sheet');
+  const sheetName = `Master - Picked ${pickDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  const worksheet = workbook.addWorksheet(sheetName);
   
   // Header section
   let row = 1;
   worksheet.getCell(`A${row}`).value = 'VAMAC CARMEL CHURCH - BR4';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  // Use merged cells for right side content to prevent overlap
+  worksheet.mergeCells(`F${row}:H${row}`);
   worksheet.getCell(`F${row}`).value = 'MR. SHEET';
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
   
   worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.mergeCells(`F${row}:H${row}`);
   worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
   
   worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  // Add empty merged cells for consistency
+  worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = '';
   row++;
   
   worksheet.getCell(`A${row}`).value = '804-321-3955';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = '';
+  row++;
+  
+  worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
   
   row++; // Empty row
@@ -223,12 +268,29 @@ async function createMasterSheet(
   
   const tableStartRow = row;
   
-  // Set column widths
+  // Set base column widths
   worksheet.getColumn(1).width = 16;
   worksheet.getColumn(2).width = 22;
-  for (let i = 3; i <= headers.length; i++) {
-    worksheet.getColumn(i).width = 12;
-  }
+  
+  // Set dynamic widths for item columns and custom items
+  activeItems.forEach((item, idx) => {
+    const colIndex = idx + 3; // +3 because of Branch # and Branch Name
+    const minWidth = Math.max(item.label.length + 2, 12);
+    worksheet.getColumn(colIndex).width = Math.min(minWidth, 18);
+  });
+  
+  // Set dynamic widths for custom item columns
+  customItemOrder.forEach((itemName, idx) => {
+    const colIndex = idx + 3 + activeItems.length;
+    const minWidth = Math.max(itemName.length + 2, 12);
+    worksheet.getColumn(colIndex).width = Math.min(minWidth, 25);
+  });
+  
+  // Set widths for Transfer #, Received By, Receive Date
+  const transferColIndex = 3 + activeItems.length + customItemOrder.length;
+  worksheet.getColumn(transferColIndex).width = 18;
+  worksheet.getColumn(transferColIndex + 1).width = 20;
+  worksheet.getColumn(transferColIndex + 2).width = 15;
   
   // Write headers
   const headerRow = worksheet.getRow(row);
@@ -321,7 +383,7 @@ async function createMasterSheet(
   worksheet.getCell(`A${row}`).value = 'Inspect Shipment for Shortages/damages before the driver leaves.';
   worksheet.getCell(`A${row}`).font = { size: 8 };
   row++;
-  worksheet.getCell(`A${row}`).value = 'Note issues on BOL and contact the shipping branch.';
+  worksheet.getCell(`A${row}`).value = 'Note issues on BOL and contact the shipping branch. Include pictures and send via solar or email.';
   worksheet.getCell(`A${row}`).font = { size: 8 };
   row++;
   worksheet.getCell(`A${row}`).value = 'Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #';
@@ -349,27 +411,37 @@ async function createBranchSheet(
   branch: AggregatedBranch,
   activeItems: any[],
   customItemOrder: string[],
-  departedDate: Date,
-  shipDate: Date
+  pickDate: Date,
+  shipDate: Date,
+  pickDateStr: string
 ) {
-  const sheetName = `Branch ${branch.branchNumber}`;
+  const sheetName = `Br${branch.branchNumber} - Picked ${pickDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   const worksheet = workbook.addWorksheet(sheetName);
   
   // Header section
   let row = 1;
   worksheet.getCell(`A${row}`).value = `VAMAC CARMEL CHURCH - BR4 -> ${branch.branchName}`;
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  // Ship Date on the same row, right side (merge F-H for space)
+  worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
+  
   worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  // Shipped By on the same row, right side
+  worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
+  
   worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   row++;
   worksheet.getCell(`A${row}`).value = '804-321-3955';
-  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
-  row++;
-  worksheet.getCell(`A${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   row++;
   
@@ -462,15 +534,31 @@ async function createBranchSheet(
     worksheet.getCell(`B${row}`).value = branch.transferNumbers.join('/');
   }
   
-  // Disclaimer
+  // Notes section
   row += 2;
+  worksheet.getCell(`A${row}`).value = 'Notes:';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 10 };
+  row++;
+  worksheet.getCell(`A${row}`).value = '_____________________________________________________________________';
+  row++;
+  worksheet.getCell(`A${row}`).value = '_____________________________________________________________________';
+  row++;
+  worksheet.getCell(`A${row}`).value = '_____________________________________________________________________';
+  
+  // Received By line
+  row += 2;
+  worksheet.getCell(`A${row}`).value = 'Received By: _____________________________';
+  worksheet.getCell(`A${row}`).font = { size: 10 };
+  
+  // Disclaimer at bottom
+  row += 3;
   worksheet.getCell(`A${row}`).value = 'DISCLAIMER:';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 9 };
   row++;
   worksheet.getCell(`A${row}`).value = 'Inspect Shipment for Shortages/damages before the driver leaves.';
   worksheet.getCell(`A${row}`).font = { size: 8 };
   row++;
-  worksheet.getCell(`A${row}`).value = 'Note issues on BOL and contact the shipping branch.';
+  worksheet.getCell(`A${row}`).value = 'Note issues on BOL and contact the shipping branch. Include pictures and send via solar or email.';
   worksheet.getCell(`A${row}`).font = { size: 8 };
   row++;
   worksheet.getCell(`A${row}`).value = 'Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #';

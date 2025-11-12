@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Branch, Picker, addStageRecord } from '@/lib/api';
+import { dataManager } from '@/lib/dataManager';
 import toast from 'react-hot-toast';
 
 interface StageModeProps {

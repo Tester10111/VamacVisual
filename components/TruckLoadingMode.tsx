@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { verifyPinLocal, verifyPin, getTrucks, createTruck, getStagingArea, loadToTruck, getTruckLoads, clearStagingArea, updateTruckStatus, getDepartedTruckLoadsByDate, type Truck, type StagingItem, type TruckLoad } from '@/lib/api';
+import { dataManager } from '@/lib/dataManager';
 import { generateTruckExcel } from '@/lib/truckExcelGenerator';
 import { generateMasterSheetExcel } from '@/lib/masterSheetGenerator';
 import toast from 'react-hot-toast';
@@ -31,6 +32,8 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [departedTrucks, setDepartedTrucks] = useState<Truck[]>([]);
   const [showMasterSheetModal, setShowMasterSheetModal] = useState(false);
   const [masterSheetDate, setMasterSheetDate] = useState('');
+  const [availableDepartedTrucks, setAvailableDepartedTrucks] = useState<Truck[]>([]);
+  const [selectedTrucksForMaster, setSelectedTrucksForMaster] = useState<Set<number>>(new Set());
 
   // Check if admin is cached (shared with AdminMode)
   useEffect(() => {
@@ -262,25 +265,79 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     }
   };
 
+  const handleOpenMasterSheetModal = async () => {
+    try {
+      setIsLoading(true);
+      const allTrucks = await getTrucks();
+      // Filter for departed trucks from the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const recentDeparted = allTrucks.filter(truck => {
+        if (truck.status !== 'Departed') return false;
+        const createDate = new Date(truck.createDate);
+        return createDate >= thirtyDaysAgo;
+      });
+      
+      recentDeparted.sort((a, b) => {
+        const dateA = new Date(a.createDate);
+        const dateB = new Date(b.createDate);
+        return dateB.getTime() - dateA.getTime(); // Most recent first
+      });
+      
+      setAvailableDepartedTrucks(recentDeparted);
+      setSelectedTrucksForMaster(new Set());
+      setShowMasterSheetModal(true);
+    } catch (error) {
+      console.error('Error loading departed trucks:', error);
+      toast.error('Failed to load departed trucks');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const toggleTruckSelection = (truckID: number) => {
+    const newSelection = new Set(selectedTrucksForMaster);
+    if (newSelection.has(truckID)) {
+      newSelection.delete(truckID);
+    } else {
+      newSelection.add(truckID);
+    }
+    setSelectedTrucksForMaster(newSelection);
+  };
+
   const handleExportMasterSheet = async () => {
-    if (!masterSheetDate) {
-      toast.error('Please select a date');
+    if (selectedTrucksForMaster.size === 0) {
+      toast.error('Please select at least one truck');
       return;
     }
     
     try {
       setIsLoading(true);
-      const loads = await getDepartedTruckLoadsByDate(masterSheetDate);
       
-      if (loads.length === 0) {
-        toast.error('No departed truck loads found for this date');
+      // Get loads from all selected trucks
+      const allLoads: TruckLoad[] = [];
+      for (const truckID of Array.from(selectedTrucksForMaster)) {
+        const loads = await getTruckLoads(truckID);
+        allLoads.push(...loads);
+      }
+      
+      if (allLoads.length === 0) {
+        toast.error('No loads found in selected trucks');
         return;
       }
       
-      generateMasterSheetExcel(loads, new Date(masterSheetDate));
+      // Use the most recent truck's create date as the departed date
+      const selectedTruckObjs = availableDepartedTrucks.filter(t => selectedTrucksForMaster.has(t.truckID));
+      const mostRecentDate = selectedTruckObjs.reduce((latest, truck) => {
+        const createDate = new Date(truck.createDate);
+        return createDate > latest ? createDate : latest;
+      }, new Date(0));
+      
+      generateMasterSheetExcel(allLoads, mostRecentDate);
       toast.success('Master Sheet exported successfully!');
       setShowMasterSheetModal(false);
-      setMasterSheetDate('');
+      setSelectedTrucksForMaster(new Set());
     } catch (error) {
       console.error('Error exporting master sheet:', error);
       toast.error('Failed to export master sheet');
@@ -580,7 +637,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               <span>📋</span> Departed Trucks
             </button>
             <button 
-              onClick={() => setShowMasterSheetModal(true)} 
+              onClick={handleOpenMasterSheetModal} 
               className="rounded-2xl border border-emerald-300/60 bg-emerald-600/25 px-5 py-4 text-sm font-semibold tracking-wide hover:bg-emerald-600/35 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
@@ -1138,30 +1195,70 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
       )}
       {/* Master Sheet Export Modal */}
       {showMasterSheetModal && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="w-full max-w-lg rounded-3xl border border-white/12 bg-white/10 backdrop-blur-xl shadow-[0_40px_140px_-60px_rgba(16,185,129,0.85)] p-7 text-white animate-slideUp">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-3xl border border-white/12 bg-white/10 backdrop-blur-xl shadow-[0_40px_140px_-60px_rgba(16,185,129,0.85)] p-7 text-white animate-slideUp my-8">
             <h2 className="text-2xl font-semibold mb-3">Export Master Sheet</h2>
             <p className="text-sm text-emerald-100/80 mb-5">
-              Select a date to export a consolidated master sheet of all departed trucks.
+              Select one or more departed trucks to generate a consolidated master sheet grouped by pick dates.
             </p>
             
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-emerald-100/90 mb-2 uppercase tracking-wide">
-                Select Date
-              </label>
-              <input
-                type="date"
-                value={masterSheetDate}
-                onChange={(e) => setMasterSheetDate(e.target.value)}
-                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white transition focus:border-emerald-400/60 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
-              />
+            <div className="mb-6 max-h-[50vh] overflow-y-auto pr-2">
+              {availableDepartedTrucks.length === 0 ? (
+                <div className="text-center py-8 text-emerald-100/60">
+                  No recently departed trucks found (last 30 days)
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {availableDepartedTrucks.map(truck => (
+                    <div
+                      key={truck.truckID}
+                      onClick={() => toggleTruckSelection(truck.truckID)}
+                      className={`rounded-xl border px-4 py-3 cursor-pointer transition ${
+                        selectedTrucksForMaster.has(truck.truckID)
+                          ? 'border-emerald-400/60 bg-emerald-500/20'
+                          : 'border-white/12 bg-white/5 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-white">{truck.truckName}</div>
+                          <div className="text-xs text-emerald-100/70">
+                            Departed: {formatDate(truck.createDate)}
+                          </div>
+                        </div>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+                          selectedTrucksForMaster.has(truck.truckID)
+                            ? 'border-emerald-400 bg-emerald-400'
+                            : 'border-white/30'
+                        }`}>
+                          {selectedTrucksForMaster.has(truck.truckID) && (
+                            <span className="text-white text-xs">✓</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-between mb-4 text-sm text-emerald-100/70">
+              <span>{selectedTrucksForMaster.size} truck(s) selected</span>
+              {selectedTrucksForMaster.size > 0 && (
+                <button
+                  onClick={() => setSelectedTrucksForMaster(new Set())}
+                  className="text-emerald-400 hover:text-emerald-300 transition"
+                >
+                  Clear Selection
+                </button>
+              )}
             </div>
             
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleExportMasterSheet}
                 className="flex-1 rounded-full py-3 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 font-semibold shadow-lg transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                disabled={isLoading || !masterSheetDate}
+                disabled={isLoading || selectedTrucksForMaster.size === 0}
               >
                 {isLoading ? (
                   <>
@@ -1175,7 +1272,10 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 )}
               </button>
               <button 
-                onClick={() => { setShowMasterSheetModal(false); setMasterSheetDate(''); }}
+                onClick={() => { 
+                  setShowMasterSheetModal(false); 
+                  setSelectedTrucksForMaster(new Set());
+                }}
                 className="flex-1 rounded-full py-3 border border-white/20 bg-white/10 hover:bg-white/20 font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >

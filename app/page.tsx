@@ -6,6 +6,7 @@ import AdminMode from '@/components/AdminMode';
 import StageMode from '@/components/StageMode';
 import TruckLoadingMode from '@/components/TruckLoadingMode';
 import { getBranches, getPickers, getBayAssignments, getVersion, Branch, Picker, BayAssignments } from '@/lib/api';
+import { dataManager } from '@/lib/dataManager';
 import toast from 'react-hot-toast';
 
 type Mode = 'select' | 'view' | 'admin' | 'stage' | 'truck';
@@ -20,6 +21,9 @@ export default function Home() {
   const [version, setVersion] = useState<string>('Loading...');
 
   useEffect(() => {
+    // Start background data preloading immediately
+    dataManager.preloadAllData();
+    
     loadData();
   }, []);
 
@@ -32,10 +36,10 @@ export default function Home() {
       }
       
       const [branchesData, pickersData, assignmentsData, versionData] = await Promise.all([
-        getBranches(),
-        getPickers(),
-        getBayAssignments(),
-        getVersion(),
+        dataManager.getBranchesCached(),
+        dataManager.getPickersCached(),
+        dataManager.getBayAssignmentsCached(),
+        dataManager.getVersionCached(),
       ]);
       setBranches(branchesData);
       setPickers(pickersData);
@@ -63,7 +67,10 @@ export default function Home() {
     if (mode === 'view') {
       loadData(true);
     } else {
-      loadData();
+      // Start background data preloading immediately
+    dataManager.preloadAllData();
+    
+    loadData();
     }
   };
 
