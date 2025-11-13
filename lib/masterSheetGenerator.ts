@@ -42,7 +42,7 @@ function calculateShipDate(departedDate: Date): Date {
   return ship;
 }
 
-export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate: Date) {
+export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate: Date, defaultCarrier: string = 'STEFI') {
   // Group loads by pick date
   const loadsByPickDate: Record<string, TruckLoad[]> = {};
   
@@ -188,11 +188,11 @@ export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate:
     });
     
     // Create Master Sheet for this pick date
-    await createMasterSheet(workbook, branches, activeItems, customItemOrder, pickDate, shipDate, pickDateStr);
+    await createMasterSheet(workbook, branches, activeItems, customItemOrder, pickDate, shipDate, pickDateStr, defaultCarrier);
     
     // Create individual branch sheets for this pick date
     for (const branch of branches) {
-      await createBranchSheet(workbook, branch, activeItems, customItemOrder, pickDate, shipDate, pickDateStr);
+      await createBranchSheet(workbook, branch, activeItems, customItemOrder, pickDate, shipDate, pickDateStr, defaultCarrier);
     }
   }
   
@@ -215,7 +215,8 @@ async function createMasterSheet(
   customItemOrder: string[],
   pickDate: Date,
   shipDate: Date,
-  pickDateStr: string
+  pickDateStr: string,
+  carrier: string = 'STEFI'
 ) {
   const sheetName = `Master - Picked ${pickDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   const worksheet = workbook.addWorksheet(sheetName);
@@ -234,7 +235,7 @@ async function createMasterSheet(
   worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
+  worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: '2-digit', day: '2-digit', year: '2-digit' })}`;
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
@@ -253,6 +254,11 @@ async function createMasterSheet(
   row++;
   
   worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = `Carrier: ${carrier}`;
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
+  row++;
+  
   worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
@@ -388,6 +394,9 @@ async function createMasterSheet(
   row++;
   worksheet.getCell(`A${row}`).value = 'Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #';
   worksheet.getCell(`A${row}`).font = { size: 8 };
+  row++;
+  worksheet.getCell(`A${row}`).value = 'You are responsible for what you sign for, failing to note discrepancies will lead to a loss for the receiving branch.';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 8 };
   
   // Set print settings
   worksheet.pageSetup = {
@@ -413,7 +422,8 @@ async function createBranchSheet(
   customItemOrder: string[],
   pickDate: Date,
   shipDate: Date,
-  pickDateStr: string
+  pickDateStr: string,
+  carrier: string = 'STEFI'
 ) {
   const sheetName = `Br${branch.branchNumber} - Picked ${pickDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   const worksheet = workbook.addWorksheet(sheetName);
@@ -424,7 +434,7 @@ async function createBranchSheet(
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   // Ship Date on the same row, right side (merge F-H for space)
   worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
+  worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: '2-digit', day: '2-digit', year: '2-digit' })}`;
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
@@ -433,6 +443,11 @@ async function createBranchSheet(
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   // Shipped By on the same row, right side
   worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = `Carrier: ${carrier}`;
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
+  row++;
+  
   worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
@@ -536,7 +551,7 @@ async function createBranchSheet(
   
   // Notes section
   row += 2;
-  worksheet.getCell(`A${row}`).value = 'Notes:';
+  worksheet.getCell(`A${row}`).value = 'Notes/Discrepancies:';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 10 };
   row++;
   worksheet.getCell(`A${row}`).value = '_____________________________________________________________________';
@@ -563,6 +578,9 @@ async function createBranchSheet(
   row++;
   worksheet.getCell(`A${row}`).value = 'Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #';
   worksheet.getCell(`A${row}`).font = { size: 8 };
+  row++;
+  worksheet.getCell(`A${row}`).value = 'You are responsible for what you sign for, failing to note discrepancies will lead to a loss for the receiving branch.';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 8 };
   
   // Set print settings (portrait for branch sheets)
   worksheet.pageSetup = {

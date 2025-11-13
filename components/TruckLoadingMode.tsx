@@ -25,6 +25,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showNewTruckModal, setShowNewTruckModal] = useState(false);
   const [newTruckName, setNewTruckName] = useState('');
+  const [newTruckCarrier, setNewTruckCarrier] = useState('STEFI');
   const [view, setView] = useState<'main' | 'truck-details' | 'departed-trucks'>('main');
   const [currentTruckLoads, setCurrentTruckLoads] = useState<TruckLoad[]>([]);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
@@ -94,11 +95,12 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const handleCreateTruck = async () => {
     try {
       setIsLoading(true);
-      const newTruck = await createTruck(newTruckName.trim() || undefined);
+      const newTruck = await createTruck(newTruckName.trim() || undefined, newTruckCarrier.trim() || 'STEFI');
       toast.success(`Truck "${newTruck.truckName}" created!`);
       setTrucks([...trucks, newTruck]);
       setShowNewTruckModal(false);
       setNewTruckName('');
+      setNewTruckCarrier('STEFI');
     } catch (error) {
       console.error('Error creating truck:', error);
       toast.error('Failed to create truck');
@@ -334,7 +336,10 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
         return createDate > latest ? createDate : latest;
       }, new Date(0));
       
-      generateMasterSheetExcel(allLoads, mostRecentDate);
+      // Get carrier from the first selected truck (they should all have the same carrier)
+      const defaultCarrier = selectedTruckObjs.length > 0 ? (selectedTruckObjs[0].carrier || 'STEFI') : 'STEFI';
+      
+      generateMasterSheetExcel(allLoads, mostRecentDate, defaultCarrier);
       toast.success('Master Sheet exported successfully!');
       setShowMasterSheetModal(false);
       setSelectedTrucksForMaster(new Set());
@@ -452,7 +457,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               <div>
                 <p className="uppercase tracking-[0.35em] text-xs text-blue-200/70 mb-2">Active Truck</p>
                 <h1 className="text-[clamp(2rem,3vw,3rem)] font-semibold leading-tight">🚛 {selectedTruck.truckName}</h1>
-                <p className="text-sm md:text-base text-blue-100/80 mt-2">Created on {formatDate(selectedTruck.createDate)}</p>
+                <p className="text-sm md:text-base text-blue-100/80 mt-2">Created on {formatDate(selectedTruck.createDate)} • Carrier: {selectedTruck.carrier || 'STEFI'}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button onClick={() => { setView('main'); setSelectedTruck(null); }} className="rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/20 transition">
@@ -562,7 +567,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-white">{truck.truckName}</h3>
+                        <h3 className="text-lg font-semibold text-white">{truck.truckName} • Carrier: {truck.carrier || 'STEFI'}</h3>
                         <p className="text-xs uppercase tracking-wide text-blue-100/70 mt-1">Created {formatDate(truck.createDate)}</p>
                       </div>
                       <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 bg-white/10 text-blue-100/80">
@@ -745,7 +750,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                         <div>
-                          <h3 className="text-lg font-semibold text-white">{truck.truckName}</h3>
+                          <h3 className="text-lg font-semibold text-white">{truck.truckName} • Carrier: {truck.carrier || 'STEFI'}</h3>
                           <p className="text-xs uppercase tracking-wide text-blue-100/70 mt-1">Created {formatDate(truck.createDate)}</p>
                         </div>
                         <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-emerald-300/60 bg-emerald-500/20 text-emerald-100">
@@ -804,6 +809,19 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               )}
             </div>
             
+            <div className="mb-5 space-y-2">
+              <label className="block text-xs uppercase tracking-wide text-blue-100/70">
+                Carrier <span className="text-blue-100/40">(default: STEFI)</span>
+              </label>
+              <input
+                type="text"
+                value={newTruckCarrier}
+                onChange={(e) => setNewTruckCarrier(e.target.value)}
+                placeholder="STEFI"
+                className="input-field w-full bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
+              />
+            </div>
+            
             <div className="flex flex-col sm:flex-row gap-3">
               <button 
                 onClick={handleCreateTruck}
@@ -819,8 +837,8 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                   'Create Truck'
                 )}
               </button>
-              <button 
-                onClick={() => { setShowNewTruckModal(false); setNewTruckName(''); }}
+              <button
+                onClick={() => { setShowNewTruckModal(false); setNewTruckName(''); setNewTruckCarrier('STEFI'); }}
                 className="btn-secondary flex-1 rounded-full py-3 border border-white/20 bg-white/10 hover:bg-white/20"
                 disabled={isLoading}
               >
@@ -1221,7 +1239,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-white">{truck.truckName}</div>
+                          <div className="font-semibold text-white">{truck.truckName} • Carrier: {truck.carrier || 'STEFI'}</div>
                           <div className="text-xs text-emerald-100/70">
                             Departed: {formatDate(truck.createDate)}
                           </div>

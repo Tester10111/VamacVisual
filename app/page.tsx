@@ -1,13 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import ViewMode from '@/components/ViewMode';
 import AdminMode from '@/components/AdminMode';
 import StageMode from '@/components/StageMode';
-import TruckLoadingMode from '@/components/TruckLoadingMode';
+import dynamic from 'next/dynamic';
 import { getBranches, getPickers, getBayAssignments, getVersion, Branch, Picker, BayAssignments } from '@/lib/api';
 import { dataManager } from '@/lib/dataManager';
+import { performanceMonitor } from '@/lib/performanceMonitor';
 import toast from 'react-hot-toast';
+
+// Lazy load TruckLoadingMode for better performance
+const TruckLoadingMode = dynamic(() => import('@/components/TruckLoadingMode'), {
+  loading: () => (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white mb-4 mx-auto"></div>
+        <p className="text-white text-xl">Loading Trucks and Staging Area...</p>
+      </div>
+    </div>
+  ),
+  ssr: false // TruckLoadingMode is client-side only
+});
 
 type Mode = 'select' | 'view' | 'admin' | 'stage' | 'truck';
 
@@ -21,6 +35,12 @@ export default function Home() {
   const [version, setVersion] = useState<string>('Loading...');
 
   useEffect(() => {
+    // Make dataManager globally accessible for debugging
+    if (typeof window !== 'undefined') {
+      (window as any).dataManager = dataManager;
+      (window as any).performanceMonitor = performanceMonitor;
+    }
+    
     // Start background data preloading immediately
     dataManager.preloadAllData();
     
@@ -173,9 +193,18 @@ export default function Home() {
         />
       )}
       {mode === 'truck' && (
-        <TruckLoadingMode
-          onBack={() => setMode('select')}
-        />
+        <Suspense fallback={
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white mb-4 mx-auto"></div>
+              <p className="text-white text-xl">Loading Truck Loading...</p>
+            </div>
+          </div>
+        }>
+          <TruckLoadingMode
+            onBack={() => setMode('select')}
+          />
+        </Suspense>
       )}
     </>
   );

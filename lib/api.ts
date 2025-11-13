@@ -84,6 +84,7 @@ export interface Truck {
   createDate: string;
   createTimestamp: Date | string;
   status: string;
+  carrier: string;
 }
 
 export interface StagingItem {
@@ -247,8 +248,8 @@ export async function getTrucks(): Promise<Truck[]> {
   return result.data;
 }
 
-export async function createTruck(truckName?: string): Promise<Truck> {
-  const result = await fetchFromAppsScript('createTruck', { truckName: truckName || '' });
+export async function createTruck(truckName?: string, carrier?: string): Promise<Truck> {
+  const result = await fetchFromAppsScript('createTruck', { truckName: truckName || '', carrier: carrier || 'STEFI' });
   return result.data;
 }
 

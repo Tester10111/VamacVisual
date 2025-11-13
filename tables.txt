@@ -95,10 +95,11 @@ Columns:
 - B: TruckName (e.g., "11/05 Truck #1" or custom name)
 - C: CreateDate (date only)
 - D: CreateTimestamp (full date and time)
-- E: Status (Active/Closed)
+- E: Status (Active/Departed)
+- F: Carrier (e.g., "STEFI")
 
 Sample Data:
-1 | 11/05 Truck #1 | 2025-11-05 | 2025-11-05 08:00:00 | Active
+1 | 11/05 Truck #1 | 2025-11-05 | 2025-11-05 08:00:00 | Active | STEFI
 
 
 Sheet 7: "TruckLoads"
@@ -134,15 +135,5 @@ Note: TruckLoads records items moved from staging area to trucks.
 The staging area shows: StageRecords (grouped by branch+pickDate) MINUS TruckLoads (grouped by branch+pickDate)
 
 
-SETUP INSTRUCTIONS:
-1. Create a new Google Sheets spreadsheet
-2. Create 7 sheets with the names above
-3. Add the column headers (row 1) for each sheet
-4. Add the sample data starting from row 2
-5. In Google Sheets, go to Extensions > Apps Script
-6. Delete any default code and paste the contents from code.gs
-7. Deploy as Web App (Execute as: Me, Access: Anyone)
-8. Copy the deployment URL
-9. Create a .env.local file in your project root with:
-   NEXT_PUBLIC_APPS_SCRIPT_URL=your_deployment_url_here
+
 

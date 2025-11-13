@@ -61,7 +61,8 @@ function handleRequest(e) {
         break;
       case 'createTruck':
         const truckName = e.parameter.truckName;
-        result = createTruck(truckName);
+        const carrier = e.parameter.carrier || 'STEFI';
+        result = createTruck(truckName, carrier);
         break;
       case 'getStagingArea':
         result = getStagingArea();
@@ -596,7 +597,8 @@ function getTrucks() {
           truckName: data[i][1],
           createDate: data[i][2],
           createTimestamp: data[i][3],
-          status: data[i][4] || 'Active'
+          status: data[i][4] || 'Active',
+          carrier: data[i][5] || 'STEFI'
         });
       }
     }
@@ -609,7 +611,7 @@ function getTrucks() {
 }
 
 // Create a new truck
-function createTruck(truckName) {
+function createTruck(truckName, carrier) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('Trucks');
@@ -617,12 +619,17 @@ function createTruck(truckName) {
     // Create Trucks sheet if it doesn't exist
     if (!sheet) {
       sheet = ss.insertSheet('Trucks');
-      sheet.appendRow(['TruckID', 'TruckName', 'CreateDate', 'CreateTimestamp', 'Status']);
+      sheet.appendRow(['TruckID', 'TruckName', 'CreateDate', 'CreateTimestamp', 'Status', 'Carrier']);
     }
     
     const timezone = 'America/New_York';
     const now = new Date();
     const dateOnly = Utilities.formatDate(now, timezone, 'yyyy-MM-dd');
+    
+    // Set default carrier if not provided
+    if (!carrier || carrier.trim() === '') {
+      carrier = 'STEFI';
+    }
     
     // Get next truck ID
     const data = sheet.getDataRange().getValues();
@@ -649,16 +656,17 @@ function createTruck(truckName) {
       truckName = `${formattedDate} Truck #${todayCount + 1}`;
     }
     
-    sheet.appendRow([nextID, truckName, dateOnly, now, 'Active']);
+    sheet.appendRow([nextID, truckName, dateOnly, now, 'Active', carrier]);
     
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: {
         truckID: nextID,
         truckName: truckName,
         createDate: dateOnly,
         createTimestamp: now,
-        status: 'Active'
+        status: 'Active',
+        carrier: carrier
       }
     };
   } catch (error) {

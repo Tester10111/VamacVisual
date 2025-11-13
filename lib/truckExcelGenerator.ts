@@ -121,7 +121,7 @@ export async function generateTruckExcel(
     worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
     row++;
     
-    worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}`;
+    worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'short', year: '2-digit', month: '2-digit', day: '2-digit' })}`;
     worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
     row++;
     
@@ -241,6 +241,9 @@ export async function generateTruckExcel(
     row++;
     worksheet.getCell(`A${row}`).value = 'Make sure all Boxes/Pallets are labeled with the ship from branch #, SHIP to branch #, and transfer #';
     worksheet.getCell(`A${row}`).font = { size: 8 };
+    row++;
+    worksheet.getCell(`A${row}`).value = '**you are responsible for what you sign for, failing to note discrepancies will lead to a loss for the receiving branch.**';
+    worksheet.getCell(`A${row}`).font = { bold: true, size: 8 };
     
     // Set print settings
     worksheet.pageSetup = {
