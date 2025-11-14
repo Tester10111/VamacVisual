@@ -11,9 +11,7 @@ interface TruckLoadingModeProps {
   onBack: () => void;
 }
 
-interface LoadQuantities extends StagingItem {
-  transferNumber?: string;
-}
+interface LoadQuantities extends StagingItem {}
 
 export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -180,12 +178,9 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     }
   };
 
-  const updateLoadQuantity = (index: number, field: keyof StagingItem | 'transferNumber', value: string) => {
+  const updateLoadQuantity = (index: number, field: keyof StagingItem, value: string) => {
     const updated = [...loadQuantities];
-    // Handle transfer number as string
-    if (field === 'transferNumber') {
-      (updated[index] as any)[field] = value;
-    } else if (value === '') {
+    if (value === '') {
       // Handle empty string - don't convert to number
       (updated[index] as any)[field] = 0;
     } else {
@@ -385,6 +380,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   // Get item summary (non-zero items)
   const getItemSummary = (item: StagingItem | TruckLoad) => {
     const items = [];
+    if (item.transferNumber) items.push(`${item.transferNumber}`);
     if (item.pallets > 0) items.push(`${item.pallets} Pallets`);
     if (item.boxes > 0) items.push(`${item.boxes} Boxes`);
     if (item.rolls > 0) items.push(`${item.rolls} Rolls`);
@@ -877,19 +873,17 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                       </div>
                     </div>
                     
-                    {/* Transfer Number Field */}
-                    <div className="mb-4">
-                      <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
-                        Transfer Number(s) (e.g., T1232322)
-                      </label>
-                      <input
-                        type="text"
-                        value={item.transferNumber || ''}
-                        onChange={(e) => updateLoadQuantity(index, 'transferNumber', e.target.value)}
-                        placeholder="Enter transfer number"
-                        className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 transition focus:border-blue-400/60 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
-                      />
-                    </div>
+                    {/* Transfer Number Display */}
+                    {item.transferNumber && (
+                      <div className="mb-4">
+                        <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
+                          Transfer Number
+                        </label>
+                        <div className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white">
+                          {item.transferNumber}
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {/* Basic items */}

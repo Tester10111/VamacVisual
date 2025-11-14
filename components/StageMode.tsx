@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Branch, Picker, addStageRecord } from '@/lib/api';
+import { useState, useRef, useEffect } from 'react';
+import { Branch, Picker, addStageRecord, getExistingTransferNumber } from '@/lib/api';
 import { dataManager } from '@/lib/dataManager';
 import toast from 'react-hot-toast';
 
@@ -39,11 +39,18 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
   const [mailBox, setMailBox] = useState('');
   const [customItems, setCustomItems] = useState<Array<{ name: string; quantity: string }>>([{ name: '', quantity: '' }]);
 
+  // Transfer number workflow
+  const [transferNumber, setTransferNumber] = useState('');
+  const [existingTransferNumber, setExistingTransferNumber] = useState<string | null>(null);
+  const [showTransferPrompt, setShowTransferPrompt] = useState(false);
+  const [isFirstStaging, setIsFirstStaging] = useState(false);
+
   // Refs for focus management
   const branchInputRef = useRef<HTMLInputElement>(null);
   const palletsInputRef = useRef<HTMLInputElement>(null);
   const boxesInputRef = useRef<HTMLInputElement>(null);
   const rollsInputRef = useRef<HTMLInputElement>(null);
+  const transferInputRef = useRef<HTMLInputElement>(null);
 
   const handlePickerIDSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -71,16 +78,57 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     // Auto-find branch as user types
     if (value.trim() === '') {
       setSelectedBranch(null);
+      setExistingTransferNumber(null);
+      setShowTransferPrompt(false);
+      setTransferNumber('');
       return;
     }
 
     // Try to find branch by number or name
     const branch = branches.find(
-      b => b.branchNumber.toString() === value.trim() || 
+      b => b.branchNumber.toString() === value.trim() ||
            b.branchName.toLowerCase().includes(value.toLowerCase().trim())
     );
     
     setSelectedBranch(branch || null);
+    
+    if (branch) {
+      checkExistingTransferNumber(branch.branchNumber);
+    }
+  };
+
+  const checkExistingTransferNumber = async (branchNumber: number) => {
+    try {
+      // Get current date in Eastern Time
+      const now = new Date();
+      const easternDate = now.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+      const dateStr = easternDate; // This will be in MM/DD/YYYY format
+      
+      // Convert to YYYY-MM-DD format for API
+      const dateParts = dateStr.split('/');
+      const apiDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
+      
+      const existing = await getExistingTransferNumber(branchNumber, apiDate);
+      
+      if (existing) {
+        // Transfer number exists - auto-fill and disable editing
+        setExistingTransferNumber(existing);
+        setTransferNumber(existing);
+        setShowTransferPrompt(false);
+        setIsFirstStaging(false);
+      } else {
+        // First staging of this branch today - prompt for transfer number
+        setExistingTransferNumber(null);
+        setShowTransferPrompt(true);
+        setIsFirstStaging(true);
+        setTimeout(() => transferInputRef.current?.focus(), 100);
+      }
+    } catch (error) {
+      console.error('Error checking existing transfer number:', error);
+      // Default to showing prompt if there's an error
+      setShowTransferPrompt(true);
+      setIsFirstStaging(true);
+    }
   };
 
   const handleBranchKeyDown = (e: React.KeyboardEvent) => {
@@ -151,8 +199,20 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       return;
     }
 
+    // Validate transfer number if this is the first staging
+    if (isFirstStaging && !transferNumber.trim()) {
+      toast.error('Please enter a transfer number');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
+      
+      // Validate transfer number if this is the first staging
+      if (isFirstStaging && !transferNumber.trim()) {
+        toast.error('Please enter a transfer number for this branch');
+        return;
+      }
       
       await addStageRecord({
         pickerID: parseInt(pickerID),
@@ -177,6 +237,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
         im1250Tank: parseInt(im1250Tank) || 0,
         mailBox: parseInt(mailBox) || 0,
         custom: customItemsStr,
+        transferNumber: transferNumber.trim(),
       });
 
       // Show success message
@@ -205,6 +266,11 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       setIm1250Tank('');
       setMailBox('');
       setCustomItems([{ name: '', quantity: '' }]);
+      // Reset transfer number workflow
+      setExistingTransferNumber(null);
+      setShowTransferPrompt(false);
+      setTransferNumber('');
+      setIsFirstStaging(false);
       
       // Focus back on picker ID for next entry
       setTimeout(() => {
@@ -219,6 +285,70 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Add transfer number section to UI after branch selection
+  const renderTransferNumberSection = () => {
+    if (!selectedBranch) return null;
+
+    if (showTransferPrompt) {
+      // First staging - prompt for transfer number
+      return (
+        <div className="rounded-3xl border border-orange-400/60 bg-orange-500/15 px-6 py-6 md:px-8 md:py-7 shadow-inner animate-slideDown">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-8 w-8 rounded-full bg-orange-500/30 flex items-center justify-center border border-orange-300/60 text-orange-100 text-sm font-semibold">!</div>
+            <div>
+              <div className="text-sm uppercase tracking-wide text-orange-200/80">First Time Today</div>
+              <div className="text-lg font-semibold text-orange-100">
+                You're the first person to stage {selectedBranch.branchName} today!
+              </div>
+            </div>
+          </div>
+          
+          <label className="block text-orange-100/80 font-semibold text-lg mb-3">
+            Enter Transfer Number
+          </label>
+          <input
+            ref={transferInputRef}
+            type="text"
+            value={transferNumber}
+            onChange={(e) => setTransferNumber(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                palletsInputRef.current?.focus();
+              }
+            }}
+            className="input-field w-full text-lg md:text-xl bg-white/10 border-orange-300/40 text-white placeholder:text-orange-200/40 focus:border-orange-200/70 focus:bg-white/15"
+            placeholder="e.g., T1232322"
+            required
+          />
+          <p className="text-sm text-orange-200/70 mt-2">
+            This transfer number will be used for all future staging of {selectedBranch.branchName} today.
+          </p>
+        </div>
+      );
+    } else if (existingTransferNumber) {
+      // Subsequent staging - show existing transfer number (read-only)
+      return (
+        <div className="rounded-3xl border border-blue-400/60 bg-blue-500/15 px-6 py-6 md:px-8 md:py-7 shadow-inner">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-8 w-8 rounded-full bg-blue-500/30 flex items-center justify-center border border-blue-300/60 text-blue-100 text-sm font-semibold">✓</div>
+            <div>
+              <div className="text-sm uppercase tracking-wide text-blue-200/80">Transfer Number Found</div>
+              <div className="text-lg font-semibold text-blue-100">
+                {existingTransferNumber}
+              </div>
+            </div>
+          </div>
+          <p className="text-sm text-blue-200/70">
+            Transfer number from first staging of {selectedBranch.branchName} today.
+          </p>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -334,6 +464,9 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                 </div>
               )}
             </div>
+
+            {/* Transfer Number Section */}
+            {renderTransferNumberSection()}
 
             {/* Quantities Section */}
             <div className="rounded-3xl border border-white/15 bg-white/6 px-6 py-6 md:px-8 md:py-7 shadow-inner">

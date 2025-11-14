@@ -72,6 +72,8 @@ export interface StageRecord {
   im1250Tank?: number;
   mailBox?: number;
   custom?: string; // Format: "Item1:Quantity1,Item2:Quantity2"
+  transferNumber?: string; // Transfer number for this branch on this date
+  rowIndex?: number; // The Google Sheets row index for deletion
 }
 
 export interface BayAssignments {
@@ -108,6 +110,7 @@ export interface StagingItem {
   im1250Tank?: number;
   mailBox?: number;
   custom?: string;
+  transferNumber?: string; // Transfer number for this branch on this date
 }
 
 export interface TruckLoad extends StagingItem {
@@ -278,5 +281,18 @@ export async function updateTruckStatus(truckID: number, status: string): Promis
 export async function getDepartedTruckLoadsByDate(date: string): Promise<TruckLoad[]> {
   const result = await fetchFromAppsScript('getDepartedTruckLoadsByDate', { date });
   return result.data || [];
+}
+
+// Get existing transfer number for a branch on a specific date
+export async function getExistingTransferNumber(branchNumber: number, date: string): Promise<string | null> {
+  const result = await fetchFromAppsScript('getExistingTransferNumber', { branchNumber, date });
+  return result.data;
+}
+
+// Update transfer number for a specific stage record
+export async function updateStageRecordTransferNumber(rowIndex: number, transferNumber: string): Promise<void> {
+  await fetchFromAppsScript('updateStageRecordTransferNumber', {
+    updateParams: JSON.stringify({ rowIndex, transferNumber })
+  });
 }
 

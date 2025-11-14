@@ -41,6 +41,15 @@ function handleRequest(e) {
         const record = JSON.parse(e.parameter.record);
         result = addStageRecord(record);
         break;
+      case 'getExistingTransferNumber':
+        const branchNumber = parseInt(e.parameter.branchNumber);
+        const filterDate = e.parameter.date;
+        result = getExistingTransferNumber(branchNumber, filterDate);
+        break;
+      case 'updateStageRecordTransferNumber':
+        const updateParams = JSON.parse(e.parameter.updateParams);
+        result = updateStageRecordTransferNumber(updateParams);
+        break;
       case 'addPicker':
         const picker = JSON.parse(e.parameter.picker);
         result = addPicker(picker);
@@ -299,7 +308,9 @@ function getStageRecords(date) {
         im540Tank: data[i][19] || 0,
         im1250Tank: data[i][20] || 0,
         mailBox: data[i][21] || 0,
-        custom: data[i][22] || ''
+        custom: data[i][22] || '',
+        transferNumber: data[i][23] || '',
+        rowIndex: i // Include the actual Google Sheets row index (0-based)
       });
     } else {
       Logger.log('Row ' + i + ' - No match (recordDate: "' + recordDate + '" !== filterDate: "' + filterDate + '")');
@@ -355,7 +366,8 @@ function addStageRecord(record) {
     record.im540Tank || 0,
     record.im1250Tank || 0,
     record.mailBox || 0,
-    record.custom || ''
+    record.custom || '',
+    record.transferNumber || ''
   ]);
   
   return { success: true };
@@ -574,6 +586,65 @@ function deleteStageRecord(rowIndex) {
   }
 }
 
+// Get existing transfer number for a branch on a specific date
+function getExistingTransferNumber(branchNumber, date) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('StageRecords');
+    const data = sheet.getDataRange().getValues();
+    const timezone = 'America/New_York';
+    
+    for (let i = 1; i < data.length; i++) {
+      if (!data[i][0]) continue;
+      
+      const recordBranchNumber = data[i][3];
+      let recordDate = '';
+      
+      // Parse date from column I
+      const dateValue = data[i][8];
+      if (dateValue) {
+        if (dateValue.getTime && !isNaN(dateValue.getTime())) {
+          recordDate = Utilities.formatDate(dateValue, timezone, 'yyyy-MM-dd');
+        } else if (typeof dateValue === 'string') {
+          recordDate = dateValue.substring(0, 10);
+        }
+      }
+      
+      if (recordBranchNumber === branchNumber && recordDate === date) {
+        const transferNumber = data[i][23] || ''; // Column X (index 23)
+        if (transferNumber && transferNumber.trim() !== '') {
+          return { success: true, data: transferNumber.trim() };
+        }
+      }
+    }
+    
+    return { success: true, data: null }; // No existing transfer number
+  } catch (error) {
+    Logger.log('Error in getExistingTransferNumber: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+// Update transfer number for a specific stage record
+function updateStageRecordTransferNumber(updateParams) {
+  try {
+    const { rowIndex, transferNumber } = updateParams;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('StageRecords');
+    
+    // rowIndex is 0-based from data array, but sheet rows are 1-based
+    const sheetRow = rowIndex + 2; // Account for header row (1) and 0-based index (1)
+    
+    // Update the transfer number in column X (index 23)
+    sheet.getRange(sheetRow, 24).setValue(transferNumber); // Column X is the 24th column (1-based)
+    
+    return { success: true };
+  } catch (error) {
+    Logger.log('Error in updateStageRecordTransferNumber: ' + error);
+    return { success: false, error: error.toString() };
+  }
+}
+
 // ===== TRUCK LOADING FUNCTIONS =====
 
 // Get all trucks
@@ -730,7 +801,8 @@ function getStagingArea() {
           im540Tank: 0,
           im1250Tank: 0,
           mailBox: 0,
-          customItems: []
+          customItems: [],
+          transferNumber: '' // Will be populated from the first record
         };
       }
       
@@ -755,6 +827,11 @@ function getStagingArea() {
       // Collect custom items
       if (stageData[i][22] && stageData[i][22].trim()) {
         staged[key].customItems.push(stageData[i][22]);
+      }
+      
+      // Get transfer number from the first record for this branch/date
+      if (!staged[key].transferNumber && stageData[i][23]) {
+        staged[key].transferNumber = stageData[i][23];
       }
     }
     

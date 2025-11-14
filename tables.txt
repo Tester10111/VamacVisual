@@ -68,12 +68,16 @@ Columns:
   Format: "Item1:Quantity1,Item2:Quantity2,Item3:Quantity3"
   Example: "Special Pipe:5,Extra Boxes:10"
   Empty if no custom items
+- X: TransferNumber (text) - Transfer number for this branch on this date
+  Example: "T1232322"
+  Set when first staging a branch for the day, auto-filled for subsequent staging
 
 Sample Data:
-2025-11-05 08:30:00 | 1001 | Taylor | 5 | Petersburg | 3 | 10 | 2 | 2025-11-05 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | "Special Pipe:5"
+2025-11-05 08:30:00 | 1001 | Taylor | 5 | Petersburg | 3 | 10 | 2 | 2025-11-05 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | "Special Pipe:5" | T1232322
 
 Note: Advanced fields (J-V) are optional. Set to 0 if not used.
 Custom field (W) is optional. Leave empty if no custom items.
+TransferNumber (X) should be set when first staging a branch for the day.
 
 
 Sheet 5: "Config"

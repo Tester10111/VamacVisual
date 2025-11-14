@@ -39,13 +39,19 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
     }
   };
 
-  const handleDeleteRecord = async (index: number) => {
+  const handleDeleteRecord = async (record: StageRecord) => {
     if (!confirm('Are you sure you want to delete this record? This action cannot be undone.')) {
       return;
     }
 
     try {
-      await deleteStageRecord(index);
+      // Use the rowIndex from the record (this is the actual Google Sheets row)
+      if (!record.rowIndex) {
+        toast.error('Cannot delete record: missing row reference');
+        return;
+      }
+
+      await deleteStageRecord(record.rowIndex);
       toast.success('Record deleted successfully!');
       loadRecords(); // Reload records
     } catch (error) {
@@ -55,7 +61,7 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
   };
 
   const getBranchSummary = () => {
-    const summary: Record<number, { branchName: string; pallets: number; boxes: number; rolls: number }> = {};
+    const summary: Record<number, { branchName: string; pallets: number; boxes: number; rolls: number; transferNumber?: string }> = {};
     
     records.forEach(record => {
       if (!summary[record.branchNumber]) {
@@ -64,6 +70,7 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
           pallets: 0,
           boxes: 0,
           rolls: 0,
+          transferNumber: record.transferNumber || undefined,
         };
       }
       summary[record.branchNumber].pallets += record.pallets;
@@ -162,7 +169,12 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
                         <div className="text-xs uppercase tracking-wide text-blue-100/70 mb-1">
                           Branch {branchNumber}
                         </div>
-                        <div className="text-lg font-semibold text-white">{data.branchName}</div>
+                        <div className="text-lg font-semibold text-white">
+                          {data.branchName}
+                          {data.transferNumber && (
+                            <span className="text-sm font-normal text-blue-300/80 ml-2">{data.transferNumber}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between text-blue-100/80">
@@ -203,6 +215,7 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
                         <th className="py-4 px-5">Time</th>
                         <th className="py-4 px-5">Picker</th>
                         <th className="py-4 px-5">Branch</th>
+                        <th className="py-4 px-5">Transfer #</th>
                         <th className="py-4 px-5 text-right">Pallets</th>
                         <th className="py-4 px-5 text-right">Boxes</th>
                         <th className="py-4 px-5 text-right">Rolls</th>
@@ -223,12 +236,19 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
                             <div className="text-white font-medium">Branch {record.branchNumber}</div>
                             <div className="text-xs uppercase tracking-wide text-blue-100/60">{record.branchName}</div>
                           </td>
+                          <td className="py-4 px-5">
+                            {record.transferNumber ? (
+                              <div className="text-white font-semibold">{record.transferNumber}</div>
+                            ) : (
+                              <div className="text-blue-100/50">-</div>
+                            )}
+                          </td>
                           <td className="py-4 px-5 text-right font-semibold text-white">{record.pallets}</td>
                           <td className="py-4 px-5 text-right font-semibold text-white">{record.boxes}</td>
                           <td className="py-4 px-5 text-right font-semibold text-white">{record.rolls}</td>
                           <td className="py-4 px-5 text-center">
                             <button
-                              onClick={() => handleDeleteRecord(index)}
+                              onClick={() => handleDeleteRecord(record)}
                               className="px-4 py-2 rounded-full border border-red-400/60 bg-red-500/20 text-red-100 text-xs font-semibold uppercase tracking-wide hover:bg-red-500/30 transition"
                               title="Delete this record"
                             >

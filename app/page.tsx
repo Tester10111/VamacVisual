@@ -10,6 +10,113 @@ import { dataManager } from '@/lib/dataManager';
 import { performanceMonitor } from '@/lib/performanceMonitor';
 import toast from 'react-hot-toast';
 
+// Simple loading screen component
+function SimpleLoadingScreen() {
+  const loadingTips = [
+    "You're fired. -Taylor",
+    "Shout out to my top 3 pokemon lovers: Zay, Christian, Vaughn ",
+    "Don't use handwrap shinkwrap for the wrapper... it's loud",
+    "Survival Tip: Don't wear headphones!...around Kermit",
+    "Pro tip: Scanning slowly actually reduces errors—your scanner appreciates the break.",
+    "Did you know? Transfer numbers load faster when your coffee is stronger. (Probably.)",
+    "Warehouse wisdom: Every pallet jack has a personality. Some just have a bad attitude.",
+    "Insider info: Staging clean = loading clean. Your future self will thank you.",
+    "Pro tip: Double-check labels—your accuracy score will thank you later.",
+    "Fun fact: The shrink wrap roll ALWAYS runs out when it's your turn to wrap",
+    "Did you know? Most mispicks happen before the first cup of coffee. Coincidence? No.",
+    "Pro tip: Your order picker battery lasts longer when you whisper encouragement to it.",
+    "Warehouse logic: Pallets only fall when someone is looking.",
+    "Insider info: The forklift is only slow when you're in a hurry.",
+    "Pro tip: Staging by branch keeps loading smoother than a brand-new pallet jack wheel.",
+    "Did you know? CDC stands for 'Carefully Delivering Chaos'.",
+    "Fun fact: Transfer numbers behave better when grouped by destination.",
+    "Pro tip: A well-wrapped pallet can survive an apocalypse. Or at least a bumpy ride.",
+    "Insider info: Sorting by aisle saves more time than you'd think.",
+    "Fun fact: The warehouse diet is 60% water, 40% complaining, 100% accuracy.",
+    "Pro tip: Don't forget to breathe between shipments—your heart rate disagrees.",
+    "Dad joke: Why don't pallets ever get lost? They always *stack* together.",
+    "Fun fact: 99% of loose boxes almost fall… but don't. Until you turn around.",
+    "Pro tip: Always check for hidden items behind pallets—they love to hide.",
+    "Did you know? Truck loading becomes 20% faster with good music playing.",
+    "Insider info: The master sheet doesn't lie. Except when it does. (Then it's the printer's fault.)",
+    "Warehouse humor: If you can't find it—ask that one coworker who somehow knows everything.",
+    "Fun fact: The staging area is basically organized chaos… with a barcode.",
+    "Pro tip: Keeping your blade sharp saves time and reduces cardboard rage.",
+    "Did you know? Most transfer delays start with the phrase: \"It was just right here.\"",
+    "Warehouse wisdom: A clean floor is the #1 enemy of stubbed toes everywhere.",
+    "Joke: Why did the pallet jack apply for a job? It wanted to *lift* its career."
+  ];
+
+// Start with first tip (deterministic) and then rotate randomly on client
+  const [currentTip, setCurrentTip] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  useEffect(() => {
+    // Set initial random tip after hydration to avoid SSR mismatch
+    setCurrentTip(Math.floor(Math.random() * loadingTips.length));
+
+    // Rotate tips randomly every 4 seconds
+    const tipInterval = setInterval(() => {
+      setCurrentTip((prev) => {
+        let next = prev;
+        while (next === prev) {
+          next = Math.floor(Math.random() * loadingTips.length);
+        }
+        return next;
+      });
+    }, 4000);
+
+    // Simulate loading progress
+    const progressInterval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= 95) return prev;
+        return prev + Math.random() * 5;
+      });
+    }, 200);
+
+    return () => {
+      clearInterval(tipInterval);
+      clearInterval(progressInterval);
+    };
+  }, [loadingTips.length]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700">
+      <div className="text-center max-w-2xl px-8">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white mb-6 mx-auto"></div>
+        <p className="text-white text-xl mb-6">Loading Vamac Visual...</p>
+        
+        {/* Progress bar */}
+        <div className="w-64 mx-auto mb-6">
+          <div className="w-full bg-blue-800 rounded-full h-2 mb-2">
+            <div
+              className="bg-white h-2 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+          <div className="text-white text-sm">
+            {Math.round(loadingProgress)}%
+          </div>
+        </div>
+
+        {/* Loading tip */}
+        <div className="bg-blue-800/50 rounded-2xl p-6 mb-6">
+          <div className="text-cyan-200 text-sm font-semibold mb-2">
+            💡 Loading Tip
+          </div>
+          <div className="text-white text-lg leading-relaxed">
+            {loadingTips[currentTip]}
+          </div>
+        </div>
+        
+        <div className="text-blue-200 text-sm">
+          Build Version: 0.9
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Lazy load TruckLoadingMode for better performance
 const TruckLoadingMode = dynamic(() => import('@/components/TruckLoadingMode'), {
   loading: () => (
@@ -95,14 +202,7 @@ export default function Home() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white mb-4 mx-auto"></div>
-          <p className="text-white text-xl">Loading VAMAC Visual...</p>
-        </div>
-      </div>
-    );
+    return <SimpleLoadingScreen />;
   }
 
   if (mode === 'select') {
@@ -160,7 +260,7 @@ export default function Home() {
 
         <div className="mt-12 text-center text-blue-200 text-sm">
           <p>Select a mode to continue</p>
-          <p className="mt-4 text-blue-300 font-medium">Build Version: {version}</p>
+          <p className="mt-4 text-blue-300 font-medium">Build: {version}</p>
         </div>
       </div>
     );
