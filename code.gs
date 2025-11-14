@@ -572,11 +572,10 @@ function deleteStageRecord(rowIndex) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('StageRecords');
     
-    // rowIndex is 0-based from data array, but sheet rows are 1-based
-    // Add 2 to account for header row (1) and 0-based index (1)
-    const sheetRow = rowIndex + 2;
+    // rowIndex is now the actual Google Sheets row number (1-based, where 1 is header)
+    const sheetRow = rowIndex;
     
-    Logger.log('Deleting row: ' + sheetRow);
+    Logger.log('Deleting row: ' + sheetRow + ' (received rowIndex: ' + rowIndex + ')');
     sheet.deleteRow(sheetRow);
     
     return { success: true };

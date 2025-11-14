@@ -51,7 +51,8 @@ export default function HistoryView({ branches, onBack }: HistoryViewProps) {
         return;
       }
 
-      await deleteStageRecord(record.rowIndex);
+      // rowIndex from getStageRecords is 1-based, so add 1 to get Google Sheets row
+      await deleteStageRecord(record.rowIndex + 1);
       toast.success('Record deleted successfully!');
       loadRecords(); // Reload records
     } catch (error) {
