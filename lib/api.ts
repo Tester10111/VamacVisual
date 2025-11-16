@@ -120,9 +120,17 @@ export interface TruckLoad extends StagingItem {
 }
 
 async function fetchFromAppsScript(action: string, params: Record<string, any> = {}, retryCount = 0) {
+  // Import connection health monitor dynamically to avoid circular imports
+  const { connectionHealthMonitor } = await import('./connectionHealthMonitor');
+  
   // Validate API URL before making request
   if (!APPS_SCRIPT_URL) {
     throw new Error('NEXT_PUBLIC_APPS_SCRIPT_URL environment variable is not set. Please configure it in your Vercel project settings or .env.local file. See VERCEL_SETUP.md for instructions.');
+  }
+
+  // Check connection health before making request
+  if (!connectionHealthMonitor.isHealthy() && retryCount === 0) {
+    console.warn('⚠️ Connection health degraded, but proceeding with request...');
   }
 
   // Use the internal proxy endpoint to avoid CORS issues
@@ -135,20 +143,33 @@ async function fetchFromAppsScript(action: string, params: Record<string, any> =
 
   const finalUrl = `${proxyUrl}?${searchParams.toString()}`;
 
-  // Create abort controller for timeout
+  // Create abort controller for timeout with dynamic timeout based on connection health
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+  const isHealthy = connectionHealthMonitor.isHealthy();
+  const timeoutDuration = isHealthy ? 15000 : 30000; // Longer timeout for unhealthy connections
+  const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+
+  // Add request ID for tracking
+  const requestId = `${action}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  console.log(`🔄 [${requestId}] Making API request: ${action} (attempt ${retryCount + 1})`);
 
   try {
+    const startTime = Date.now();
+    
     const response = await fetch(finalUrl, {
       method: 'GET',
       signal: controller.signal,
       headers: {
         'Cache-Control': 'no-cache',
+        'X-Request-ID': requestId,
       },
     });
 
+    const duration = Date.now() - startTime;
     clearTimeout(timeoutId);
+
+    console.log(`✅ [${requestId}] Response received in ${duration}ms`);
 
     // Check if response is ok
     if (!response.ok) {
@@ -162,34 +183,65 @@ async function fetchFromAppsScript(action: string, params: Record<string, any> =
       throw new Error(data.error || 'Unknown API error');
     }
     
+    // Log successful response for monitoring
+    if (duration > 10000) {
+      console.warn(`⚠️ [${requestId}] Slow response detected: ${duration}ms`);
+    }
+    
     return data;
   } catch (error) {
     clearTimeout(timeoutId);
     
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorName = error instanceof Error ? error.name : '';
+    const duration = Date.now() - Date.now();
+    
+    console.error(`❌ [${requestId}] Request failed: ${errorName} - ${errorMessage}`);
     
     // Handle timeout specifically
     if (errorName === 'AbortError') {
-      console.error(`Request timeout for action: ${action}`);
+      const timeoutMsg = `Request timeout for action: ${action} (${timeoutDuration}ms)`;
+      console.error(`⏰ [${requestId}] ${timeoutMsg}`);
+      
+      // If this is a critical action and we haven't exhausted retries, try with fresh connection
+      if (retryCount < 1 && ['addStageRecord', 'updateStageRecordTransferNumber', 'deleteStageRecord'].includes(action)) {
+        console.log(`🔄 [${requestId}] Retrying critical action with fresh connection...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+        return fetchFromAppsScript(action, params, retryCount + 1);
+      }
+      
       throw new Error('Request timed out. Please check your connection and try again.');
     }
     
     // Handle network errors
     if (errorName === 'TypeError' && errorMessage.includes('fetch')) {
-      console.error(`Network error for action: ${action}`, error);
+      console.error(`🌐 [${requestId}] Network error for action: ${action}`, error);
+      
+      // If connection might be restored and this is critical, retry once
+      if (retryCount < 1 && ['addStageRecord', 'updateStageRecordTransferNumber', 'deleteStageRecord'].includes(action)) {
+        console.log(`🔄 [${requestId}] Retrying critical action after network error...`);
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5 seconds
+        return fetchFromAppsScript(action, params, retryCount + 1);
+      }
+      
       throw new Error('Network connection error. Please check your internet connection.');
     }
     
-    // Retry logic for transient errors (max 2 retries)
-    if (retryCount < 2 && (
+    // Enhanced retry logic for transient errors
+    const shouldRetry = retryCount < 2 && (
       errorMessage.includes('Network') ||
       errorMessage.includes('timeout') ||
       errorMessage.includes('Failed to fetch') ||
-      errorMessage.includes('Connection')
-    )) {
-      console.log(`Retrying ${action} (attempt ${retryCount + 1}/2)`);
-      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
+      errorMessage.includes('Connection') ||
+      errorMessage.includes('HTTP 5') || // Server errors
+      errorMessage.includes('HTTP 429') // Rate limiting
+    );
+
+    if (shouldRetry) {
+      const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Exponential backoff with cap at 8 seconds
+      console.log(`🔄 [${requestId}] Retrying ${action} (attempt ${retryCount + 1}/2) in ${delay}ms`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
       return fetchFromAppsScript(action, params, retryCount + 1);
     }
     

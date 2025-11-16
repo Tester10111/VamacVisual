@@ -6,8 +6,6 @@ import AdminMode from '@/components/AdminMode';
 import StageMode from '@/components/StageMode';
 import dynamic from 'next/dynamic';
 import { getBranches, getPickers, getBayAssignments, getVersion, Branch, Picker, BayAssignments } from '@/lib/api';
-import { dataManager } from '@/lib/dataManager';
-import { performanceMonitor } from '@/lib/performanceMonitor';
 import toast from 'react-hot-toast';
 
 // Simple loading screen component
@@ -27,7 +25,6 @@ function SimpleLoadingScreen() {
     "Pro tip: Your order picker battery lasts longer when you whisper encouragement to it.",
     "Warehouse logic: Pallets only fall when someone is looking.",
     "Insider info: The forklift is only slow when you're in a hurry.",
-    "Pro tip: Staging by branch keeps loading smoother than a brand-new pallet jack wheel.",
     "Did you know? CDC stands for 'Carefully Delivering Chaos'.",
     "Fun fact: Transfer numbers behave better when grouped by destination.",
     "Pro tip: A well-wrapped pallet can survive an apocalypse. Or at least a bumpy ride.",
@@ -44,10 +41,13 @@ function SimpleLoadingScreen() {
     "Pro tip: Keeping your blade sharp saves time and reduces cardboard rage.",
     "Did you know? Most transfer delays start with the phrase: \"It was just right here.\"",
     "Warehouse wisdom: A clean floor is the #1 enemy of stubbed toes everywhere.",
-    "Joke: Why did the pallet jack apply for a job? It wanted to *lift* its career."
+    "Joke: Why did the pallet jack apply for a job? It wanted to *lift* its career.",
+    "Vending machines are over-rated, am i right? :)",
+    "Bao and Chrisitan ARE NOT bud buddies",
+    "Tyler's and Zay almost as good as Bao in receiving"
   ];
 
-// Start with first tip (deterministic) and then rotate randomly on client
+  // Start with first tip (deterministic) and then rotate randomly on client
   const [currentTip, setCurrentTip] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
@@ -110,7 +110,7 @@ function SimpleLoadingScreen() {
         </div>
         
         <div className="text-blue-200 text-sm">
-          Build Version: 0.91
+          Build: 0.92
         </div>
       </div>
     </div>
@@ -141,21 +141,56 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [version, setVersion] = useState<string>('Loading...');
 
+  // Initialize imports only on client side
+  const [dataManager, setDataManager] = useState<any>(null);
+  const [connectionHealthMonitor, setConnectionHealthMonitor] = useState<any>(null);
+  const [performanceMonitor, setPerformanceMonitor] = useState<any>(null);
+
   useEffect(() => {
-    // Make dataManager globally accessible for debugging
-    if (typeof window !== 'undefined') {
-      (window as any).dataManager = dataManager;
-      (window as any).performanceMonitor = performanceMonitor;
+    try {
+      // Dynamic imports to prevent SSR issues
+      Promise.all([
+        import('@/lib/dataManager'),
+        import('@/lib/connectionHealthMonitor'),
+        import('@/lib/performanceMonitor')
+      ]).then(([dataManagerModule, connectionModule, performanceModule]) => {
+        const { dataManager: dm } = dataManagerModule;
+        const { connectionHealthMonitor: chm } = connectionModule;
+        const { performanceMonitor: pm } = performanceModule;
+        
+        // Make globally accessible for debugging
+        (window as any).__appStartTime = Date.now();
+        (window as any).dataManager = dm;
+        (window as any).performanceMonitor = pm;
+        (window as any).connectionHealthMonitor = chm;
+        
+        // Set state for use in component
+        setDataManager(dm);
+        setConnectionHealthMonitor(chm);
+        setPerformanceMonitor(pm);
+        
+        // Start connection health monitoring first
+        console.log('🔍 Starting connection health monitoring...');
+        chm.start();
+        
+        // Start background data preloading immediately
+        dm.preloadAllData();
+        
+        loadData(false, dm, chm);
+      }).catch((error) => {
+        console.error('💥 Error importing modules:', error);
+        setLoading(false);
+      });
+    } catch (error) {
+      console.error('💥 Error in useEffect:', error);
+      setLoading(false);
     }
-    
-    // Start background data preloading immediately
-    dataManager.preloadAllData();
-    
-    loadData();
   }, []);
 
-  const loadData = async (isRefresh = false) => {
+  const loadData = async (isRefresh = false, dm = dataManager, chm = connectionHealthMonitor) => {
     try {
+      if (!dm) return; // Wait for dataManager to be loaded
+      
       if (!isRefresh) {
         setLoading(true);
       } else {
@@ -163,10 +198,10 @@ export default function Home() {
       }
       
       const [branchesData, pickersData, assignmentsData, versionData] = await Promise.all([
-        dataManager.getBranchesCached(),
-        dataManager.getPickersCached(),
-        dataManager.getBayAssignmentsCached(),
-        dataManager.getVersionCached(),
+        dm.getBranchesCached(),
+        dm.getPickersCached(),
+        dm.getBayAssignmentsCached(),
+        dm.getVersionCached(),
       ]);
       setBranches(branchesData);
       setPickers(pickersData);
@@ -178,7 +213,7 @@ export default function Home() {
       // For View Mode, silently retry instead of showing error
       if (mode === 'view' && isRefresh) {
         // Silently retry after 5 seconds
-        setTimeout(() => loadData(true), 5000);
+        setTimeout(() => loadData(true, dm, chm), 5000);
       } else if (mode !== 'view') {
         // For other modes, show error
         toast.error('Error loading data. Please check your connection.');
@@ -309,4 +344,3 @@ export default function Home() {
     </>
   );
 }
-

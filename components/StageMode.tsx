@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Branch, Picker, addStageRecord, getExistingTransferNumber } from '@/lib/api';
 import { dataManager } from '@/lib/dataManager';
+import { connectionHealthMonitor } from '@/lib/connectionHealthMonitor';
 import toast from 'react-hot-toast';
 
 interface StageModeProps {
@@ -44,6 +45,13 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
   const [existingTransferNumber, setExistingTransferNumber] = useState<string | null>(null);
   const [showTransferPrompt, setShowTransferPrompt] = useState(false);
   const [isFirstStaging, setIsFirstStaging] = useState(false);
+
+  // Connection status
+  const [connectionStatus, setConnectionStatus] = useState<{
+    isHealthy: boolean;
+    isOnline: boolean;
+    reason?: string
+  }>({ isHealthy: true, isOnline: true });
 
   // Refs for focus management
   const branchInputRef = useRef<HTMLInputElement>(null);
@@ -166,6 +174,17 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     e.preventDefault();
 
     if (isSubmitting) return; // Prevent double submission
+
+    // Check connection status before submission
+    if (!connectionStatus.isOnline) {
+      toast.error('No internet connection. Please check your network and try again.');
+      return;
+    }
+
+    if (!connectionStatus.isHealthy) {
+      toast.error(`Connection issues detected: ${connectionStatus.reason}. Please try again.`);
+      return;
+    }
 
     // Validate picker
     if (!pickerName) {
@@ -296,6 +315,62 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     }
   };
 
+  // Set up connection monitoring
+  useEffect(() => {
+    const updateConnectionStatus = () => {
+      const status = dataManager.getConnectionStatus();
+      setConnectionStatus(status);
+    };
+
+    // Initial status check
+    updateConnectionStatus();
+
+    // Listen for connection state changes
+    dataManager.addConnectionStateListener(updateConnectionStatus);
+
+    // Cleanup
+    return () => {
+      dataManager.removeConnectionStateListener(updateConnectionStatus);
+    };
+  }, []);
+
+  // Show connection status warnings
+  useEffect(() => {
+    if (!connectionStatus.isOnline) {
+      toast.error('📡 No internet connection. Working with cached data.', { duration: 5000 });
+    } else if (!connectionStatus.isHealthy) {
+      toast.error(`⚠️ Connection issues: ${connectionStatus.reason}`, { duration: 5000 });
+    }
+  }, [connectionStatus]);
+
+  // Connection status indicator component
+  const renderConnectionStatus = () => {
+    if (connectionStatus.isHealthy && connectionStatus.isOnline) {
+      return (
+        <div className="flex items-center gap-2 text-emerald-400">
+          <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <span className="text-sm font-medium">Connected</span>
+        </div>
+      );
+    }
+
+    if (!connectionStatus.isOnline) {
+      return (
+        <div className="flex items-center gap-2 text-red-400">
+          <div className="h-2 w-2 rounded-full bg-red-400"></div>
+          <span className="text-sm font-medium">Offline</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2 text-yellow-400">
+        <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></div>
+        <span className="text-sm font-medium">Connection Issues</span>
+      </div>
+    );
+  };
+
   // Add transfer number section to UI after branch selection
   const renderTransferNumberSection = () => {
     if (!selectedBranch) return null;
@@ -382,13 +457,16 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
               Log your picking here.
             </p>
           </div>
-          <button
-            onClick={onExit}
-            type="button"
-            className="self-start md:self-center px-6 py-3 rounded-full bg-white/10 border border-white/30 text-sm md:text-base font-medium tracking-wide hover:bg-white/15 hover:border-white/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/60"
-          >
-            Exit
-          </button>
+          <div className="flex items-center gap-4">
+            {renderConnectionStatus()}
+            <button
+              onClick={onExit}
+              type="button"
+              className="self-start md:self-center px-6 py-3 rounded-full bg-white/10 border border-white/30 text-sm md:text-base font-medium tracking-wide hover:bg-white/15 hover:border-white/50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-200/60"
+            >
+              Exit
+            </button>
+          </div>
         </div>
 
         {/* Main Form */}
@@ -778,7 +856,8 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
               disabled={
                 !pickerName ||
                 !selectedBranch ||
-                isSubmitting
+                isSubmitting ||
+                !connectionStatus.isOnline
               }
             >
               {isSubmitting ? (
@@ -791,6 +870,9 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                 </span>
               ) : (
                 'Submit Stage Record'
+              )}
+              {!connectionStatus.isOnline && (
+                <span className="ml-2 text-sm opacity-75">(Offline Mode)</span>
               )}
             </button>
           </form>
