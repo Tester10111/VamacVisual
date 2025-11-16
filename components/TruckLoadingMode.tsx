@@ -11,6 +11,112 @@ interface TruckLoadingModeProps {
   onBack: () => void;
 }
 
+// Loading screen component (same as in page.tsx)
+function SimpleLoadingScreen() {
+  const loadingTips = [
+    "You're fired. -Taylor",
+    "Shout out to my top 3 pokemon lovers: Zay, Christian, Vaughn ",
+    "Don't use handwrap shinkwrap for the wrapper... it's loud",
+    "Survival Tip: Don't wear headphones!...around Kermit",
+    "Pro tip: Scanning slowly actually reduces errors—your scanner appreciates the break.",
+    "Did you know? Transfer numbers load faster when your coffee is stronger. (Probably.)",
+    "Warehouse wisdom: Every pallet jack has a personality. Some just have a bad attitude.",
+    "Insider info: Staging clean = loading clean. Your future self will thank you.",
+    "Pro tip: Double-check labels—your accuracy score will thank you later.",
+    "Fun fact: The shrink wrap roll ALWAYS runs out when it's your turn to wrap",
+    "Did you know? Most mispicks happen before the first cup of coffee. Coincidence? No.",
+    "Pro tip: Your order picker battery lasts longer when you whisper encouragement to it.",
+    "Warehouse logic: Pallets only fall when someone is looking.",
+    "Insider info: The forklift is only slow when you're in a hurry.",
+    "Pro tip: Staging by branch keeps loading smoother than a brand-new pallet jack wheel.",
+    "Did you know? CDC stands for 'Carefully Delivering Chaos'.",
+    "Fun fact: Transfer numbers behave better when grouped by destination.",
+    "Pro tip: A well-wrapped pallet can survive an apocalypse. Or at least a bumpy ride.",
+    "Insider info: Sorting by aisle saves more time than you'd think.",
+    "Fun fact: The warehouse diet is 60% water, 40% complaining, 100% accuracy.",
+    "Pro tip: Don't forget to breathe between shipments—your heart rate disagrees.",
+    "Dad joke: Why don't pallets ever get lost? They always *stack* together.",
+    "Fun fact: 99% of loose boxes almost fall… but don't. Until you turn around.",
+    "Pro tip: Always check for hidden items behind pallets—they love to hide.",
+    "Did you know? Truck loading becomes 20% faster with good music playing.",
+    "Insider info: The master sheet doesn't lie. Except when it does. (Then it's the printer's fault.)",
+    "Warehouse humor: If you can't find it—ask that one coworker who somehow knows everything.",
+    "Fun fact: The staging area is basically organized chaos… with a barcode.",
+    "Pro tip: Keeping your blade sharp saves time and reduces cardboard rage.",
+    "Did you know? Most transfer delays start with the phrase: \"It was just right here.\"",
+    "Warehouse wisdom: A clean floor is the #1 enemy of stubbed toes everywhere.",
+    "Joke: Why did the pallet jack apply for a job? It wanted to *lift* its career."
+  ];
+
+  const [currentTip, setCurrentTip] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  useEffect(() => {
+    // Set initial random tip after hydration to avoid SSR mismatch
+    setCurrentTip(Math.floor(Math.random() * loadingTips.length));
+
+    // Rotate tips randomly every 4 seconds
+    const tipInterval = setInterval(() => {
+      setCurrentTip((prev) => {
+        let next = prev;
+        while (next === prev) {
+          next = Math.floor(Math.random() * loadingTips.length);
+        }
+        return next;
+      });
+    }, 4000);
+
+    // Simulate loading progress
+    const progressInterval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= 95) return prev;
+        return prev + Math.random() * 5;
+      });
+    }, 200);
+
+    return () => {
+      clearInterval(tipInterval);
+      clearInterval(progressInterval);
+    };
+  }, [loadingTips.length]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+      <div className="text-center max-w-2xl px-8">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white mb-6 mx-auto"></div>
+        <p className="text-white text-xl mb-6">Loading Trucks and Staging Area...</p>
+        
+        {/* Progress bar */}
+        <div className="w-64 mx-auto mb-6">
+          <div className="w-full bg-slate-800 rounded-full h-2 mb-2">
+            <div
+              className="bg-white h-2 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+          <div className="text-white text-sm">
+            {Math.round(loadingProgress)}%
+          </div>
+        </div>
+
+        {/* Loading tip */}
+        <div className="bg-slate-800/50 rounded-2xl p-6 mb-6">
+          <div className="text-cyan-200 text-sm font-semibold mb-2">
+            💡 Loading Tip
+          </div>
+          <div className="text-white text-lg leading-relaxed">
+            {loadingTips[currentTip]}
+          </div>
+        </div>
+        
+        <div className="text-slate-300 text-sm">
+          Fetching truck data and staging items...
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface LoadQuantities extends StagingItem {}
 
 export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
@@ -21,6 +127,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [selectedTruck, setSelectedTruck] = useState<Truck | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showNewTruckModal, setShowNewTruckModal] = useState(false);
   const [newTruckName, setNewTruckName] = useState('');
   const [newTruckCarrier, setNewTruckCarrier] = useState('STEFI');
@@ -39,13 +146,22 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     const cachedAuth = localStorage.getItem('vamac_admin_authenticated');
     if (cachedAuth === 'true') {
       setIsAuthenticated(true);
-      loadData();
+      // Set initial loading to show the loading screen
+      setIsInitialLoading(true);
+      loadData(true);
+    } else {
+      setIsInitialLoading(false);
     }
   }, []);
 
   // Load trucks and staging area
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (isInitial = false) => {
+    if (isInitial) {
+      setIsInitialLoading(true);
+    } else {
+      setIsLoading(true);
+    }
+    
     try {
       const [trucksData, stagingData] = await Promise.all([
         getTrucks(),
@@ -56,11 +172,27 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
       setTrucks(activeTrucks);
       setStagingItems(stagingData);
     } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load data');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+        toast.error('Connection timeout. Please refresh the page and try again.');
+      } else if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+        toast.error('Network connection error. Please check your internet connection.');
+      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        toast.error('Unable to connect to server. Please refresh the page.');
+      } else {
+        toast.error(`Failed to load data: ${errorMessage}`);
+      }
+      
+      console.error('Data loading error:', error);
     } finally {
       setIsLoading(false);
+      setIsInitialLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadData(false);
   };
 
   const handlePinSubmit = async (e: React.FormEvent) => {
@@ -401,6 +533,11 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     return items.join(', ');
   };
 
+  // Show loading screen when isInitialLoading is true and authenticated
+  if (isAuthenticated && isInitialLoading) {
+    return <SimpleLoadingScreen />;
+  }
+
   // PIN Screen (consistent with Admin Mode)
   if (!isAuthenticated) {
     return (
@@ -612,7 +749,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               <span>➕</span> Create New Truck
             </button>
             <button 
-              onClick={loadData} 
+              onClick={handleRefresh} 
               className="rounded-2xl border border-white/20 bg-white/10 px-5 py-4 text-sm font-medium tracking-wide hover:bg-white/18 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >

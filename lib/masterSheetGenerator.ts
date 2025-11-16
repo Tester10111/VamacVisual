@@ -1,6 +1,47 @@
 import ExcelJS from 'exceljs';
 import { TruckLoad } from './api';
 
+// Import jsbarcode dynamically to handle browser compatibility
+let JsBarcode: any = null;
+
+const loadJsBarcode = async () => {
+  if (!JsBarcode) {
+    try {
+      const jsbarcode = await import('jsbarcode');
+      JsBarcode = jsbarcode.default;
+    } catch (error) {
+      console.warn('Failed to load jsbarcode library:', error);
+      return null;
+    }
+  }
+  return JsBarcode;
+};
+
+// Generate barcode image for a given text
+const generateBarcode = async (text: string, width: number = 200, height: number = 60): Promise<string | null> => {
+  try {
+    const barcodeLib = await loadJsBarcode();
+    if (!barcodeLib) return null;
+
+    // Create a canvas element
+    const canvas = document.createElement('canvas');
+    
+    // Generate barcode on canvas
+    barcodeLib(canvas, text, {
+      format: "CODE128",
+      width: 2,
+      height: height,
+      displayValue: false,
+    });
+
+    // Convert canvas to base64 PNG data
+    return canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  } catch (error) {
+    console.warn('Failed to generate barcode for text:', text, error);
+    return null;
+  }
+};
+
 interface AggregatedBranch {
   branchNumber: number;
   branchName: string;
@@ -231,20 +272,20 @@ async function createMasterSheet(
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
-  
+
+  worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  // Add empty merged cells for consistency
+  worksheet.mergeCells(`F${row}:H${row}`);
+  worksheet.getCell(`F${row}`).value = '';
+  row++;
+
   worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   worksheet.mergeCells(`F${row}:H${row}`);
   worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: '2-digit', day: '2-digit', year: '2-digit' })}`;
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
-  row++;
-  
-  worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
-  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
-  // Add empty merged cells for consistency
-  worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = '';
   row++;
   
   worksheet.getCell(`A${row}`).value = '804-321-3955';
@@ -294,7 +335,7 @@ async function createMasterSheet(
   
   // Set widths for Transfer #, Received By, Receive Date
   const transferColIndex = 3 + activeItems.length + customItemOrder.length;
-  worksheet.getColumn(transferColIndex).width = 18;
+  worksheet.getColumn(transferColIndex).width = 18; // Back to original width
   worksheet.getColumn(transferColIndex + 1).width = 20;
   worksheet.getColumn(transferColIndex + 2).width = 15;
   
@@ -315,7 +356,7 @@ async function createMasterSheet(
   row++;
   
   // Write data rows
-  branches.forEach(branch => {
+  for (const branch of branches) {
     const rowValues: any[] = [branch.branchNumber, branch.branchName];
     
     activeItems.forEach(item => {
@@ -326,10 +367,12 @@ async function createMasterSheet(
       rowValues.push(branch.customItems[itemName] || 0);
     });
     
-    rowValues.push(branch.transferNumbers.join('/'), '', ''); // Transfer #, Received By, Receive Date
+    const transferNumbersText = branch.transferNumbers.join('/');
+    rowValues.push(transferNumbersText, '', ''); // Just transfer numbers, Received By, Receive Date
     
     const dataRow = worksheet.getRow(row);
     dataRow.values = rowValues;
+    
     dataRow.eachCell((cell) => {
       cell.alignment = { horizontal: 'left', vertical: 'middle' };
       cell.border = {
@@ -341,7 +384,7 @@ async function createMasterSheet(
     });
     
     row++;
-  });
+  };
   
   row++; // Empty row
   
@@ -438,7 +481,11 @@ async function createBranchSheet(
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
-  
+
+  worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  row++;
+
   worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   // Shipped By on the same row, right side
@@ -447,17 +494,14 @@ async function createBranchSheet(
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
-  
+
+  worksheet.getCell(`A${row}`).value = '804-321-3955';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  row++;
+
   worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
-  row++;
-  
-  worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
-  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
-  row++;
-  worksheet.getCell(`A${row}`).value = '804-321-3955';
-  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   row++;
   
   row++; // Empty row
@@ -542,11 +586,51 @@ async function createBranchSheet(
     bottom: { style: 'medium' }
   };
   
-  // Transfer numbers
+  // Transfer numbers with barcode and manual entry backup
   if (branch.transferNumbers.length > 0) {
+    const transferNumbersText = branch.transferNumbers.join('/');
+    
+    // Add spacing row to prevent overlap with table
     row++;
-    worksheet.getCell(`A${row}`).value = 'Transfer #:';
-    worksheet.getCell(`B${row}`).value = branch.transferNumbers.join('/');
+    
+    // Generate and add barcode for transfer numbers
+    try {
+      const barcodeBase64 = await generateBarcode(transferNumbersText);
+      if (barcodeBase64) {
+        // Add barcode image
+        const imageId = workbook.addImage({
+          base64: `data:image/png;base64,${barcodeBase64}`,
+          extension: 'png',
+        });
+        
+        // Position barcode image
+        worksheet.addImage(imageId, {
+          tl: { col: 0, row: row - 1 }, // Column A, current row
+          ext: { width: 180, height: 50 },
+          editAs: 'oneCell'
+        });
+        
+        // Set row height to accommodate barcode
+        worksheet.getRow(row).height = 50;
+        row++;
+        
+        // Add transfer number text below barcode for manual entry
+        worksheet.getCell(`A${row}`).value = `Transfer #: ${transferNumbersText}`;
+        worksheet.getCell(`A${row}`).font = { size: 10 };
+        row++;
+      } else {
+        // Fallback to text if barcode generation fails
+        worksheet.getCell(`A${row}`).value = `Transfer #: ${transferNumbersText}`;
+        worksheet.getCell(`A${row}`).font = { size: 10 };
+        row++;
+      }
+    } catch (error) {
+      console.warn('Failed to generate barcode for branch sheet:', transferNumbersText, error);
+      // Fallback to text
+      worksheet.getCell(`A${row}`).value = `Transfer #: ${transferNumbersText}`;
+      worksheet.getCell(`A${row}`).font = { size: 10 };
+      row++;
+    }
   }
   
   // Notes section

@@ -81,6 +81,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       setExistingTransferNumber(null);
       setShowTransferPrompt(false);
       setTransferNumber('');
+      setIsFirstStaging(false);
       return;
     }
 
@@ -166,11 +167,13 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
 
     if (isSubmitting) return; // Prevent double submission
 
+    // Validate picker
     if (!pickerName) {
       toast.error('Please enter a valid Picker ID');
       return;
     }
 
+    // Validate branch
     if (!selectedBranch) {
       toast.error('Please select a valid branch');
       return;
@@ -196,12 +199,6 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
 
     if (!hasQuantity) {
       toast.error('Please enter at least one quantity');
-      return;
-    }
-
-    // Validate transfer number if this is the first staging
-    if (isFirstStaging && !transferNumber.trim()) {
-      toast.error('Please enter a transfer number');
       return;
     }
 
@@ -280,8 +277,20 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       
       onSave();
     } catch (error) {
-      toast.error('Error adding stage record. Please try again.');
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Provide specific error messages based on error type
+      if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+        toast.error('Connection timeout. Please check your internet connection and try again.');
+      } else if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+        toast.error('Network connection error. Please check your internet connection.');
+      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        toast.error('Unable to connect to server. Please try refreshing the page.');
+      } else {
+        toast.error(`Failed to add stage record: ${errorMessage}. Please try again.`);
+      }
+      
+      console.error('Stage record submission error:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -306,7 +315,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
           </div>
           
           <label className="block text-orange-100/80 font-semibold text-lg mb-3">
-            Enter Transfer Number
+            Enter Transfer Number <span className="text-red-300">*</span>
           </label>
           <input
             ref={transferInputRef}
@@ -316,13 +325,23 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                palletsInputRef.current?.focus();
+                if (transferNumber.trim()) {
+                  palletsInputRef.current?.focus();
+                } else {
+                  toast.error('Transfer number is required');
+                }
               }
             }}
             className="input-field w-full text-lg md:text-xl bg-white/10 border-orange-300/40 text-white placeholder:text-orange-200/40 focus:border-orange-200/70 focus:bg-white/15"
             placeholder="e.g., T1232322"
             required
           />
+          <div className="flex items-center gap-2 mt-2">
+            <div className="h-2 w-2 rounded-full bg-red-400"></div>
+            <p className="text-sm text-orange-200/70 font-medium">
+              Required: Transfer number must be entered before submission
+            </p>
+          </div>
           <p className="text-sm text-orange-200/70 mt-2">
             This transfer number will be used for all future staging of {selectedBranch.branchName} today.
           </p>
@@ -756,7 +775,11 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
             <button
               type="submit"
               className="btn-primary w-full text-lg md:text-xl py-4 rounded-full relative shadow-lg shadow-blue-900/40"
-              disabled={!pickerName || !selectedBranch || isSubmitting}
+              disabled={
+                !pickerName ||
+                !selectedBranch ||
+                isSubmitting
+              }
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center">

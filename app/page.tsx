@@ -110,7 +110,7 @@ function SimpleLoadingScreen() {
         </div>
         
         <div className="text-blue-200 text-sm">
-          Build Version: 0.9
+          Build Version: 0.91
         </div>
       </div>
     </div>

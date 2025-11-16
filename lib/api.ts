@@ -1,4 +1,4 @@
-// API functions to interact with Google Apps Script
+// API functions to interact with Google Apps Script via internal proxy
 
 const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || '';
 
@@ -119,31 +119,83 @@ export interface TruckLoad extends StagingItem {
   transferNumber?: string;
 }
 
-async function fetchFromAppsScript(action: string, params: Record<string, any> = {}) {
+async function fetchFromAppsScript(action: string, params: Record<string, any> = {}, retryCount = 0) {
   // Validate API URL before making request
   if (!APPS_SCRIPT_URL) {
     throw new Error('NEXT_PUBLIC_APPS_SCRIPT_URL environment variable is not set. Please configure it in your Vercel project settings or .env.local file. See VERCEL_SETUP.md for instructions.');
   }
 
-  if (!APPS_SCRIPT_URL.startsWith('http')) {
-    throw new Error(`Invalid NEXT_PUBLIC_APPS_SCRIPT_URL: "${APPS_SCRIPT_URL}". It must be a valid URL starting with http or https.`);
-  }
-
-  const url = new URL(APPS_SCRIPT_URL);
-  url.searchParams.append('action', action);
+  // Use the internal proxy endpoint to avoid CORS issues
+  const proxyUrl = '/api/proxy';
+  const searchParams = new URLSearchParams({ action });
   
   Object.keys(params).forEach(key => {
-    url.searchParams.append(key, typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key]);
+    searchParams.append(key, typeof params[key] === 'object' ? JSON.stringify(params[key]) : String(params[key]));
   });
 
-  const response = await fetch(url.toString());
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error(data.error || 'Unknown error');
+  const finalUrl = `${proxyUrl}?${searchParams.toString()}`;
+
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+  try {
+    const response = await fetch(finalUrl, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    // Check if response is ok
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // Check if the API response indicates success
+    if (data.success === false) {
+      throw new Error(data.error || 'Unknown API error');
+    }
+    
+    return data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : '';
+    
+    // Handle timeout specifically
+    if (errorName === 'AbortError') {
+      console.error(`Request timeout for action: ${action}`);
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+    
+    // Handle network errors
+    if (errorName === 'TypeError' && errorMessage.includes('fetch')) {
+      console.error(`Network error for action: ${action}`, error);
+      throw new Error('Network connection error. Please check your internet connection.');
+    }
+    
+    // Retry logic for transient errors (max 2 retries)
+    if (retryCount < 2 && (
+      errorMessage.includes('Network') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('Failed to fetch') ||
+      errorMessage.includes('Connection')
+    )) {
+      console.log(`Retrying ${action} (attempt ${retryCount + 1}/2)`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
+      return fetchFromAppsScript(action, params, retryCount + 1);
+    }
+    
+    // Re-throw other errors
+    throw error;
   }
-  
-  return data;
 }
 
 export async function getBranches(): Promise<Branch[]> {
