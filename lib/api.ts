@@ -23,7 +23,7 @@ export function getEasternTimeDate(): string {
 // Utility to format date in Eastern Time
 export function formatEasternDateTime(date: Date = new Date()): string {
   return new Date(date.toLocaleString('en-US', { timeZone: 'America/New_York' }))
-    .toLocaleString('en-US', { 
+    .toLocaleString('en-US', {
       timeZone: 'America/New_York',
       year: 'numeric',
       month: '2-digit',
@@ -119,10 +119,19 @@ export interface TruckLoad extends StagingItem {
   transferNumber?: string;
 }
 
+export interface PartialPallet {
+  id: string;
+  branchNumber: number;
+  branchName: string;
+  createdBy: string;
+  createdAt: string; // ISO string
+  status: 'OPEN' | 'CLOSED';
+}
+
 async function fetchFromAppsScript(action: string, params: Record<string, any> = {}, retryCount = 0) {
   // Import connection health monitor dynamically to avoid circular imports
   const { connectionHealthMonitor } = await import('./connectionHealthMonitor');
-  
+
   // Validate API URL before making request
   if (!APPS_SCRIPT_URL) {
     throw new Error('NEXT_PUBLIC_APPS_SCRIPT_URL environment variable is not set. Please configure it in your Vercel project settings or .env.local file. See VERCEL_SETUP.md for instructions.');
@@ -136,7 +145,7 @@ async function fetchFromAppsScript(action: string, params: Record<string, any> =
   // Use the internal proxy endpoint to avoid CORS issues
   const proxyUrl = '/api/proxy';
   const searchParams = new URLSearchParams({ action });
-  
+
   Object.keys(params).forEach(key => {
     searchParams.append(key, typeof params[key] === 'object' ? JSON.stringify(params[key]) : String(params[key]));
   });
@@ -151,12 +160,12 @@ async function fetchFromAppsScript(action: string, params: Record<string, any> =
 
   // Add request ID for tracking
   const requestId = `${action}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   console.log(`🔄 [${requestId}] Making API request: ${action} (attempt ${retryCount + 1})`);
 
   try {
     const startTime = Date.now();
-    
+
     const response = await fetch(finalUrl, {
       method: 'GET',
       signal: controller.signal,
@@ -177,56 +186,56 @@ async function fetchFromAppsScript(action: string, params: Record<string, any> =
     }
 
     const data = await response.json();
-    
+
     // Check if the API response indicates success
     if (data.success === false) {
       throw new Error(data.error || 'Unknown API error');
     }
-    
+
     // Log successful response for monitoring
     if (duration > 10000) {
       console.warn(`⚠️ [${requestId}] Slow response detected: ${duration}ms`);
     }
-    
+
     return data;
   } catch (error) {
     clearTimeout(timeoutId);
-    
+
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorName = error instanceof Error ? error.name : '';
     const duration = Date.now() - Date.now();
-    
+
     console.error(`❌ [${requestId}] Request failed: ${errorName} - ${errorMessage}`);
-    
+
     // Handle timeout specifically
     if (errorName === 'AbortError') {
       const timeoutMsg = `Request timeout for action: ${action} (${timeoutDuration}ms)`;
       console.error(`⏰ [${requestId}] ${timeoutMsg}`);
-      
+
       // If this is a critical action and we haven't exhausted retries, try with fresh connection
       if (retryCount < 1 && ['addStageRecord', 'updateStageRecordTransferNumber', 'deleteStageRecord'].includes(action)) {
         console.log(`🔄 [${requestId}] Retrying critical action with fresh connection...`);
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
         return fetchFromAppsScript(action, params, retryCount + 1);
       }
-      
+
       throw new Error('Request timed out. Please check your connection and try again.');
     }
-    
+
     // Handle network errors
     if (errorName === 'TypeError' && errorMessage.includes('fetch')) {
       console.error(`🌐 [${requestId}] Network error for action: ${action}`, error);
-      
+
       // If connection might be restored and this is critical, retry once
       if (retryCount < 1 && ['addStageRecord', 'updateStageRecordTransferNumber', 'deleteStageRecord'].includes(action)) {
         console.log(`🔄 [${requestId}] Retrying critical action after network error...`);
         await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5 seconds
         return fetchFromAppsScript(action, params, retryCount + 1);
       }
-      
+
       throw new Error('Network connection error. Please check your internet connection.');
     }
-    
+
     // Enhanced retry logic for transient errors
     const shouldRetry = retryCount < 2 && (
       errorMessage.includes('Network') ||
@@ -240,11 +249,11 @@ async function fetchFromAppsScript(action: string, params: Record<string, any> =
     if (shouldRetry) {
       const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Exponential backoff with cap at 8 seconds
       console.log(`🔄 [${requestId}] Retrying ${action} (attempt ${retryCount + 1}/2) in ${delay}ms`);
-      
+
       await new Promise(resolve => setTimeout(resolve, delay));
       return fetchFromAppsScript(action, params, retryCount + 1);
     }
-    
+
     // Re-throw other errors
     throw error;
   }
@@ -330,10 +339,10 @@ export async function deleteStageRecord(rowIndex: number): Promise<void> {
 export function calculateShipDate(fromDate: Date = new Date()): Date {
   const date = new Date(fromDate);
   let daysToAdd = 2;
-  
+
   // Get day of week (0 = Sunday, 4 = Thursday, 5 = Friday)
   const dayOfWeek = date.getDay();
-  
+
   // If Thursday (4), add 4 days to get to Monday
   if (dayOfWeek === 4) {
     daysToAdd = 4;
@@ -343,7 +352,7 @@ export function calculateShipDate(fromDate: Date = new Date()): Date {
     daysToAdd = 4;
   }
   // Otherwise just add 2 days
-  
+
   date.setDate(date.getDate() + daysToAdd);
   return date;
 }
@@ -397,6 +406,29 @@ export async function getExistingTransferNumber(branchNumber: number, date: stri
 export async function updateStageRecordTransferNumber(rowIndex: number, transferNumber: string): Promise<void> {
   await fetchFromAppsScript('updateStageRecordTransferNumber', {
     updateParams: JSON.stringify({ rowIndex, transferNumber })
+  });
+}
+
+// ===== PARTIAL PALLETS API FUNCTIONS =====
+
+// Create a new partial pallet
+export async function createPartialPallet(branchNumber: number, branchName: string, pickerName: string): Promise<PartialPallet> {
+  const result = await fetchFromAppsScript('createPartialPallet', {
+    data: JSON.stringify({ branchNumber, branchName, pickerName })
+  });
+  return result.data;
+}
+
+// Get all active partial pallets
+export async function getPartialPallets(): Promise<PartialPallet[]> {
+  const result = await fetchFromAppsScript('getPartialPallets');
+  return result.data || [];
+}
+
+// Close a partial pallet
+export async function closePartialPallet(id: string, branchNumber: number, branchName: string, pickerName: string): Promise<void> {
+  await fetchFromAppsScript('closePartialPallet', {
+    data: JSON.stringify({ id, branchNumber, branchName, pickerName })
   });
 }
 

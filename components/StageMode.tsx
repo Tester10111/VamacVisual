@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Branch, Picker, addStageRecord, getExistingTransferNumber } from '@/lib/api';
+import { Branch, Picker, addStageRecord, getExistingTransferNumber, createPartialPallet, getPartialPallets, closePartialPallet, PartialPallet } from '@/lib/api';
 import { dataManager } from '@/lib/dataManager';
 import { connectionHealthMonitor } from '@/lib/connectionHealthMonitor';
 import toast from 'react-hot-toast';
@@ -23,7 +23,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
   const [rolls, setRolls] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  
+
   // Advanced fields
   const [fiberglass, setFiberglass] = useState('');
   const [waterHeaters, setWaterHeaters] = useState('');
@@ -46,6 +46,11 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
   const [showTransferPrompt, setShowTransferPrompt] = useState(false);
   const [isFirstStaging, setIsFirstStaging] = useState(false);
 
+  // Partial pallet workflow
+  const [partialPallets, setPartialPallets] = useState<PartialPallet[]>([]);
+  const [currentPartialPallet, setCurrentPartialPallet] = useState<PartialPallet | null>(null);
+  const [isPartialPalletSubmitting, setIsPartialPalletSubmitting] = useState(false);
+
   // Connection status
   const [connectionStatus, setConnectionStatus] = useState<{
     isHealthy: boolean;
@@ -62,12 +67,12 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
 
   const handlePickerIDSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    
+
     // Don't validate if field is empty (user might be exiting)
     if (!pickerID || pickerID.trim() === '') {
       return;
     }
-    
+
     const picker = pickers.find(p => p.pickerID.toString() === pickerID);
     if (picker) {
       setPickerName(picker.pickerName);
@@ -82,7 +87,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
 
   const handleBranchInput = (value: string) => {
     setBranchInput(value);
-    
+
     // Auto-find branch as user types
     if (value.trim() === '') {
       setSelectedBranch(null);
@@ -96,11 +101,11 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     // Try to find branch by number or name
     const branch = branches.find(
       b => b.branchNumber.toString() === value.trim() ||
-           b.branchName.toLowerCase().includes(value.toLowerCase().trim())
+        b.branchName.toLowerCase().includes(value.toLowerCase().trim())
     );
-    
+
     setSelectedBranch(branch || null);
-    
+
     if (branch) {
       checkExistingTransferNumber(branch.branchNumber);
     }
@@ -112,13 +117,13 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       const now = new Date();
       const easternDate = now.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
       const dateStr = easternDate; // This will be in MM/DD/YYYY format
-      
+
       // Convert to YYYY-MM-DD format for API
       const dateParts = dateStr.split('/');
       const apiDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
-      
+
       const existing = await getExistingTransferNumber(branchNumber, apiDate);
-      
+
       if (existing) {
         // Transfer number exists - auto-fill and disable editing
         setExistingTransferNumber(existing);
@@ -140,6 +145,94 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
     }
   };
 
+  // Fetch partial pallets on component load
+  const loadPartialPallets = async () => {
+    try {
+      const pallets = await getPartialPallets();
+      setPartialPallets(pallets || []);
+      
+      // Check if selected branch has an active partial pallet
+      if (selectedBranch && selectedBranch.branchNumber && pallets && pallets.length > 0) {
+        const active = pallets.find(p => p.branchNumber === selectedBranch.branchNumber && p.status === 'OPEN');
+        setCurrentPartialPallet(active || null);
+      }
+    } catch (error) {
+      console.error('Error loading partial pallets:', error);
+      setPartialPallets([]);
+    }
+  };
+
+  // Handle creating a partial pallet
+  const handleCreatePartialPallet = async () => {
+    // Validate picker selection
+    if (!pickerName) {
+      toast.error('Please select a picker first');
+      return;
+    }
+
+    // Validate branch selection
+    if (!selectedBranch) {
+      toast.error('Please select a branch first');
+      return;
+    }
+
+    // Validate transfer number requirement
+    if (!transferNumber.trim()) {
+      toast.error('Transfer number is required before starting a partial pallet');
+      return;
+    }
+
+    try {
+      setIsPartialPalletSubmitting(true);
+      const newPallet = await createPartialPallet(
+        selectedBranch.branchNumber,
+        selectedBranch.branchName,
+        pickerName
+      );
+      
+      setPartialPallets([...partialPallets, newPallet]);
+      setCurrentPartialPallet(newPallet);
+      toast.success('Partial pallet created successfully!');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to create partial pallet: ${errorMessage}`);
+      console.error('Create partial pallet error:', error);
+    } finally {
+      setIsPartialPalletSubmitting(false);
+    }
+  };
+
+  // Handle closing a partial pallet
+  const handleClosePartialPallet = async () => {
+    if (!currentPartialPallet || !selectedBranch || !pickerName) {
+      return;
+    }
+
+    try {
+      setIsPartialPalletSubmitting(true);
+      await closePartialPallet(
+        currentPartialPallet.id,
+        selectedBranch.branchNumber,
+        selectedBranch.branchName,
+        pickerName
+      );
+      
+      // Remove from local state
+      const updatedPallets = partialPallets.filter(p => p.id !== currentPartialPallet.id);
+      setPartialPallets(updatedPallets);
+      setCurrentPartialPallet(null);
+      
+      toast.success('Partial pallet closed and added as 1 pallet!');
+      onSave(); // Refresh stage records
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to close partial pallet: ${errorMessage}`);
+      console.error('Close partial pallet error:', error);
+    } finally {
+      setIsPartialPalletSubmitting(false);
+    }
+  };
+
   const handleBranchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -149,8 +242,8 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       } else if (branchInput.trim() !== '') {
         // Try to find exact match
         const branch = branches.find(
-          b => b.branchNumber.toString() === branchInput.trim() || 
-               b.branchName.toLowerCase() === branchInput.toLowerCase().trim()
+          b => b.branchNumber.toString() === branchInput.trim() ||
+            b.branchName.toLowerCase() === branchInput.toLowerCase().trim()
         );
         if (branch) {
           setSelectedBranch(branch);
@@ -223,13 +316,13 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
 
     try {
       setIsSubmitting(true);
-      
+
       // Validate transfer number if this is the first staging
       if (isFirstStaging && !transferNumber.trim()) {
         toast.error('Please enter a transfer number for this branch');
         return;
       }
-      
+
       await addStageRecord({
         pickerID: parseInt(pickerID),
         pickerName,
@@ -258,7 +351,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
 
       // Show success message
       toast.success('Stage record added successfully!');
-      
+
       // Reset form
       setPickerID('');
       setPickerName('');
@@ -287,17 +380,17 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       setShowTransferPrompt(false);
       setTransferNumber('');
       setIsFirstStaging(false);
-      
+
       // Focus back on picker ID for next entry
       setTimeout(() => {
         const pickerInput = document.querySelector('input[type="number"][placeholder="Enter your ID"]') as HTMLInputElement;
         pickerInput?.focus();
       }, 100);
-      
+
       onSave();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       // Provide specific error messages based on error type
       if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
         toast.error('Connection timeout. Please check your internet connection and try again.');
@@ -308,7 +401,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       } else {
         toast.error(`Failed to add stage record: ${errorMessage}. Please try again.`);
       }
-      
+
       console.error('Stage record submission error:', error);
     } finally {
       setIsSubmitting(false);
@@ -333,6 +426,24 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
       dataManager.removeConnectionStateListener(updateConnectionStatus);
     };
   }, []);
+
+  // Load partial pallets on mount
+  useEffect(() => {
+    loadPartialPallets();
+  }, []);
+
+  // Update partial pallet state when selected branch changes
+  useEffect(() => {
+    // Always ensure we have a valid array to work with
+    const safePallets = partialPallets || [];
+    
+    if (selectedBranch && selectedBranch.branchNumber && Array.isArray(safePallets)) {
+      const active = safePallets.find(p => p && p.branchNumber !== undefined && p.branchNumber === selectedBranch.branchNumber && p.status === 'OPEN');
+      setCurrentPartialPallet(active || null);
+    } else {
+      setCurrentPartialPallet(null);
+    }
+  }, [selectedBranch?.branchNumber, partialPallets]);
 
   // Show connection status warnings
   useEffect(() => {
@@ -388,7 +499,7 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
               </div>
             </div>
           </div>
-          
+
           <label className="block text-orange-100/80 font-semibold text-lg mb-3">
             Enter Transfer Number <span className="text-red-300">*</span>
           </label>
@@ -561,6 +672,67 @@ export default function StageMode({ branches, pickers, onExit, onSave }: StageMo
                 </div>
               )}
             </div>
+
+            {/* Partial Pallet Section */}
+            {selectedBranch && selectedBranch.branchNumber && (
+              <div className="rounded-3xl border border-emerald-400/60 bg-emerald-500/15 px-6 py-6 md:px-8 md:py-7 shadow-inner animate-slideDown">
+                {currentPartialPallet ? (
+                  // Active partial pallet - show close option
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-emerald-500/30 flex items-center justify-center border border-emerald-300/60 text-emerald-100 text-sm font-semibold">
+                        <div className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse"></div>
+                      </div>
+                      <div>
+                        <div className="text-sm uppercase tracking-wide text-emerald-200/80">Active Partial Pallet</div>
+                        <div className="text-lg font-semibold text-emerald-100">
+                          Started by {currentPartialPallet.createdBy || 'Unknown'} at {currentPartialPallet.createdAt ? new Date(currentPartialPallet.createdAt).toLocaleTimeString() : 'Unknown time'}
+                        </div>
+                        <p className="text-sm text-emerald-200/70 mt-1">
+                          Click "Close Partial Pallet" to add 1 pallet to {selectedBranch.branchName}'s total and complete the partial pallet.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClosePartialPallet}
+                      disabled={isPartialPalletSubmitting}
+                      className="px-6 py-3 rounded-full bg-emerald-600/80 border border-emerald-400/60 text-emerald-50 font-semibold tracking-wide hover:bg-emerald-600/90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isPartialPalletSubmitting ? 'Closing...' : 'Close Partial Pallet (+1 Pallet)'}
+                    </button>
+                  </div>
+                ) : (
+                  // No active partial pallet - show create option
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-emerald-500/30 flex items-center justify-center border border-emerald-300/60 text-emerald-100 text-sm font-semibold">+</div>
+                        <div>
+                          <div className="text-sm uppercase tracking-wide text-emerald-200/80">Partial Pallet</div>
+                          <div className="text-lg font-semibold text-emerald-100">
+                            (NOT FINISHED, dont use)Start a partial pallet for {selectedBranch.branchName || 'Unknown Branch'}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCreatePartialPallet}
+                        disabled={isPartialPalletSubmitting || !transferNumber.trim()}
+                        className="px-6 py-3 rounded-full bg-emerald-600/80 border border-emerald-400/60 text-emerald-50 font-semibold tracking-wide hover:bg-emerald-600/90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isPartialPalletSubmitting ? 'Starting...' : 'Start Partial Pallet'}
+                      </button>
+                    </div>
+                    {!transferNumber.trim() && (
+                      <p className="text-xs text-emerald-200/70">
+                        Transfer number required before starting partial pallet
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Transfer Number Section */}
             {renderTransferNumberSection()}

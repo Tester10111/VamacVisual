@@ -1,0 +1,249 @@
+Partial Pallets Feature Implementation Plan
+Goal
+Allow users to create, manage, and close "Partial Pallets" in Stage Mode.
+
+Active partial pallets show a visual indicator (green dot) in View Mode.
+Closing a partial pallet increments the pallet count for that branch by 1.
+User Review Required
+Data Model: Is tracking just the status (Open/Closed) sufficient, or do we need to track specific items added to the partial pallet? (Assumption: Status is sufficient based on "user close it out... it will just add 1 pallet"). (Yes open/close is enough)
+Concurrency: How to handle multiple partial pallets for the same branch? (Assumption: Allow multiple, or restrict to one active per branch? Plan: Allow one active per branch for simplicity unless requested otherwise). (one active partial pallet per branch max)
+Proposed Changes
+Backend (Google Apps Script - code.gs & tables.txt)
+tables.txt: Add a new table PartialPallets to track active partial pallets.
+Columns: id, branchNumber, branchName, createdBy, createdAt, status (OPEN/CLOSED).
+code.gs:
+createPartialPallet(branchNumber, branchName, user): Adds row to PartialPallets with status 'OPEN'.
+getPartialPallets(): Returns list of OPEN partial pallets.
+closePartialPallet(id, branchNumber, branchName, user):
+Updates status to 'CLOSED'.
+Calls 
+addStageRecord
+ internally to add 1 pallet to the branch's total for the current date.
+Frontend
+[NEW] Data Layer
+lib/api.ts
+:
+Add interface PartialPallet:
+export interface PartialPallet {
+  id: string;
+  branchNumber: number;
+  branchName: string;
+  createdBy: string;
+  createdAt: string; // ISO string
+  status: 'OPEN' | 'CLOSED';
+}
+Add functions:
+createPartialPallet(branchNumber: number, branchName: string, pickerName: string): Promise<PartialPallet>
+getPartialPallets(): Promise<PartialPallet[]>
+closePartialPallet(id: string, branchNumber: number, branchName: string, pickerName: string): Promise<void>
+[MODIFY] Components
+components/StageMode.tsx
+:
+Add state partialPallets to store active partial pallets.
+Fetch active partial pallets on load (useEffect).
+In the "Assign Branch" section (after branch selection):
+Check if partialPallets contains an entry for the selected branch.
+If NO active partial pallet: Show "Start Partial Pallet" button.
+On click: Call createPartialPallet, refresh list, show success toast.
+If YES active partial pallet: Show "Active Partial Pallet" banner.
+Show details (Created by X at Time Y).
+Show "Close Partial Pallet" button.
+On click: Call closePartialPallet, refresh list, show success toast ("Partial pallet closed and added as 1 pallet").
+components/TruckLoadingMode.tsx
+ (View Mode):
+Add state partialPallets.
+Fetch active partial pallets on load.
+In the rendering loop for staging items/bays:
+Check if a branch has an active partial pallet.
+If true, render a visual indicator (e.g., a green dot or badge "Partial Pallet Open") on the branch card/box.
+Google Apps Script Code (Add to code.gs)
+// --- PARTIAL PALLETS API ---
+function createPartialPallet(e) {
+  const params = JSON.parse(e.parameter.data || '{}');
+  const branchNumber = params.branchNumber;
+  const branchName = params.branchName;
+  const createdBy = params.pickerName;
+  
+  if (!branchNumber || !createdBy) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Missing required fields' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('PartialPallets');
+    
+    if (!sheet) {
+      sheet = ss.insertSheet('PartialPallets');
+      sheet.appendRow(['id', 'branchNumber', 'branchName', 'createdBy', 'createdAt', 'status']);
+    }
+    
+    // Check if active partial pallet already exists
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const branchIdx = headers.indexOf('branchNumber');
+    const statusIdx = headers.indexOf('status');
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][branchIdx] == branchNumber && data[i][statusIdx] === 'OPEN') {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Partial pallet already exists for this branch' })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    const id = Utilities.getUuid();
+    const timestamp = new Date().toISOString();
+    
+    sheet.appendRow([id, branchNumber, branchName, createdBy, timestamp, 'OPEN']);
+    
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      data: { id, branchNumber, branchName, createdBy, createdAt: timestamp, status: 'OPEN' } 
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+function getPartialPallets() {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('PartialPallets');
+    
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const activePallets = [];
+    
+    const idIdx = headers.indexOf('id');
+    const branchNumIdx = headers.indexOf('branchNumber');
+    const branchNameIdx = headers.indexOf('branchName');
+    const createdByIdx = headers.indexOf('createdBy');
+    const createdAtIdx = headers.indexOf('createdAt');
+    const statusIdx = headers.indexOf('status');
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][statusIdx] === 'OPEN') {
+        activePallets.push({
+          id: data[i][idIdx],
+          branchNumber: data[i][branchNumIdx],
+          branchName: data[i][branchNameIdx],
+          createdBy: data[i][createdByIdx],
+          createdAt: data[i][createdAtIdx],
+          status: 'OPEN'
+        });
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, data: activePallets })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+function closePartialPallet(e) {
+  const params = JSON.parse(e.parameter.data || '{}');
+  const id = params.id;
+  const branchNumber = params.branchNumber;
+  const branchName = params.branchName;
+  const pickerName = params.pickerName;
+  
+  if (!id) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Missing ID' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('PartialPallets');
+    
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Table not found' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('id');
+    const statusIdx = headers.indexOf('status');
+    
+    let found = false;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idIdx] == id) {
+        sheet.getRange(i + 1, statusIdx + 1).setValue('CLOSED');
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Partial pallet not found' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Add 1 pallet to stage records
+    // We can reuse the existing addStageRecord logic or call it directly if it's refactored.
+    // For now, we'll simulate a call to addStageRecord
+    
+    const stageParams = {
+      pickerID: 0, // System or special ID
+      pickerName: pickerName + ' (Partial Close)',
+      branchNumber: branchNumber,
+      branchName: branchName,
+      pallets: 1,
+      boxes: 0,
+      rolls: 0,
+      custom: '',
+      transferNumber: '' // Optional
+    };
+    
+    // Call addStageRecord logic (assuming it's available in the same script context)
+    // Note: In GAS, you can call other functions directly.
+    // We need to mock the 'e' object for addStageRecord or extract the logic.
+    // Assuming addStageRecordInternal exists or we just duplicate the logic for safety/simplicity here.
+    
+    const stageSheet = ss.getSheetByName('StageData');
+    if (stageSheet) {
+       const timestamp = new Date();
+       const dateStr = Utilities.formatDate(timestamp, "America/New_York", "yyyy-MM-dd");
+       stageSheet.appendRow([
+         timestamp, 
+         stageParams.pickerID, 
+         stageParams.pickerName, 
+         stageParams.branchNumber, 
+         stageParams.branchName, 
+         stageParams.pallets, 
+         stageParams.boxes, 
+         stageParams.rolls, 
+         dateStr,
+         // ... other fields empty
+         0,0,0,0,0,0,0,0,0,0,0,0,0, '', '' 
+       ]);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+Verification Plan
+Automated Tests
+None (Manual verification required for UI and GAS integration).
+Manual Verification
+Create: In Stage Mode, select a branch, click "Start Partial Pallet". Verify UI updates.
+View: Go to Truck Loading Mode (View Mode). Verify the branch shows the green dot.
+Close: Return to Stage Mode, click "Close Partial Pallet". Verify:
+Partial pallet UI disappears.
+Pallet count for branch increases by 1.
+Green dot in View Mode disappears.

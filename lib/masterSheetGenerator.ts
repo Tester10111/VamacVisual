@@ -25,7 +25,7 @@ const generateBarcode = async (text: string, width: number = 200, height: number
 
     // Create a canvas element
     const canvas = document.createElement('canvas');
-    
+
     // Generate barcode on canvas
     barcodeLib(canvas, text, {
       format: "CODE128",
@@ -68,10 +68,10 @@ interface AggregatedBranch {
 function calculateShipDate(departedDate: Date): Date {
   const ship = new Date(departedDate);
   ship.setDate(ship.getDate() + 2);
-  
+
   // Check if it's a weekend and adjust
   const dayOfWeek = ship.getDay(); // 0 = Sunday, 6 = Saturday
-  
+
   if (dayOfWeek === 6) {
     // Saturday -> Monday (add 2 days)
     ship.setDate(ship.getDate() + 2);
@@ -79,44 +79,44 @@ function calculateShipDate(departedDate: Date): Date {
     // Sunday -> Tuesday (add 2 days)
     ship.setDate(ship.getDate() + 2);
   }
-  
+
   return ship;
 }
 
 export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate: Date, defaultCarrier: string = 'STEFI') {
   // Group loads by pick date
   const loadsByPickDate: Record<string, TruckLoad[]> = {};
-  
+
   loads.forEach(load => {
     let pickDate = load.pickDate;
     if (typeof pickDate === 'string') {
       pickDate = pickDate.split('T')[0];
     }
-    
+
     if (!loadsByPickDate[pickDate]) {
       loadsByPickDate[pickDate] = [];
     }
     loadsByPickDate[pickDate].push(load);
   });
-  
+
   const workbook = new ExcelJS.Workbook();
   const pickDates = Object.keys(loadsByPickDate).sort(); // Sort pick dates chronologically
-  
+
   // Process each pick date separately
   for (const pickDateStr of pickDates) {
     const pickDateLoads = loadsByPickDate[pickDateStr];
-    
+
     // Parse pick date and calculate ship date from it
     const [year, month, day] = pickDateStr.split('-').map(Number);
     const pickDate = new Date(year, month - 1, day);
     const shipDate = calculateShipDate(pickDate);
-    
+
     // Aggregate loads by branch for this pick date
     const branchMap = new Map<number, AggregatedBranch>();
-    
+
     pickDateLoads.forEach(load => {
       const key = load.branchNumber;
-      
+
       if (!branchMap.has(key)) {
         branchMap.set(key, {
           branchNumber: load.branchNumber,
@@ -141,9 +141,9 @@ export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate:
           transferNumbers: []
         });
       }
-      
+
       const branch = branchMap.get(key)!;
-      
+
       // Aggregate quantities
       branch.pallets += load.pallets || 0;
       branch.boxes += load.boxes || 0;
@@ -161,7 +161,7 @@ export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate:
       branch.im540Tank += load.im540Tank || 0;
       branch.im1250Tank += load.im1250Tank || 0;
       branch.mailBox += load.mailBox || 0;
-      
+
       // Aggregate custom items
       if (load.custom) {
         const customPairs = load.custom.split(',').map(s => s.trim()).filter(Boolean);
@@ -174,28 +174,28 @@ export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate:
           }
         });
       }
-      
+
       // Collect transfer numbers
       if (load.transferNumber && !branch.transferNumbers.includes(load.transferNumber)) {
         branch.transferNumbers.push(load.transferNumber);
       }
     });
-    
+
     // Convert to array and filter branches with at least one item
     const branches = Array.from(branchMap.values()).filter(branch => {
       return branch.pallets > 0 || branch.boxes > 0 || branch.rolls > 0 ||
-             branch.fiberglass > 0 || branch.waterHeaters > 0 || branch.waterRights > 0 ||
-             branch.boxTub > 0 || branch.copperPipe > 0 || branch.plasticPipe > 0 ||
-             branch.galvPipe > 0 || branch.blackPipe > 0 || branch.wood > 0 ||
-             branch.galvStrut > 0 || branch.im540Tank > 0 || branch.im1250Tank > 0 ||
-             branch.mailBox > 0 || Object.keys(branch.customItems).length > 0;
+        branch.fiberglass > 0 || branch.waterHeaters > 0 || branch.waterRights > 0 ||
+        branch.boxTub > 0 || branch.copperPipe > 0 || branch.plasticPipe > 0 ||
+        branch.galvPipe > 0 || branch.blackPipe > 0 || branch.wood > 0 ||
+        branch.galvStrut > 0 || branch.im540Tank > 0 || branch.im1250Tank > 0 ||
+        branch.mailBox > 0 || Object.keys(branch.customItems).length > 0;
     });
-    
+
     // Sort by branch number
     branches.sort((a, b) => a.branchNumber - b.branchNumber);
-    
+
     if (branches.length === 0) continue; // Skip if no branches for this pick date
-  
+
     // Define all possible items
     const allItems = [
       { field: 'pallets', label: 'Pallets' },
@@ -215,28 +215,28 @@ export async function generateMasterSheetExcel(loads: TruckLoad[], departedDate:
       { field: 'im1250Tank', label: 'IM-1250 TANK' },
       { field: 'mailBox', label: 'Mail Box' },
     ];
-    
+
     // Collect all unique custom item names
     const customItemSet = new Set<string>();
     branches.forEach(branch => {
       Object.keys(branch.customItems).forEach(itemName => customItemSet.add(itemName));
     });
     const customItemOrder = Array.from(customItemSet);
-    
+
     // Filter active items
     const activeItems = allItems.filter(item => {
       return branches.some(branch => (branch as any)[item.field] > 0);
     });
-    
+
     // Create Master Sheet for this pick date
     await createMasterSheet(workbook, branches, activeItems, customItemOrder, pickDate, shipDate, pickDateStr, defaultCarrier);
-    
+
     // Create individual branch sheets for this pick date
     for (const branch of branches) {
       await createBranchSheet(workbook, branch, activeItems, customItemOrder, pickDate, shipDate, pickDateStr, defaultCarrier);
     }
   }
-  
+
   // Generate and download file
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -261,7 +261,7 @@ async function createMasterSheet(
 ) {
   const sheetName = `Master - Picked ${pickDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   const worksheet = workbook.addWorksheet(sheetName);
-  
+
   // Header section
   let row = 1;
   worksheet.getCell(`A${row}`).value = 'VAMAC CARMEL CHURCH - BR4';
@@ -275,70 +275,62 @@ async function createMasterSheet(
 
   worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
-  // Add empty merged cells for consistency
-  worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = '';
-  row++;
-
-  worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
-  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   worksheet.mergeCells(`F${row}:H${row}`);
   worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: '2-digit', day: '2-digit', year: '2-digit' })}`;
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
-  
-  worksheet.getCell(`A${row}`).value = '804-321-3955';
+
+  worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = '';
+  worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
+  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
-  
+
+  worksheet.getCell(`A${row}`).value = '804-321-3955';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   worksheet.mergeCells(`F${row}:H${row}`);
   worksheet.getCell(`F${row}`).value = `Carrier: ${carrier}`;
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
-  
-  worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
-  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
-  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
-  row++;
-  
+
   row++; // Empty row
-  
+
   // Build headers
   const headers = ['Branch #', 'Branch Name'];
   activeItems.forEach(item => headers.push(item.label));
   customItemOrder.forEach(itemName => headers.push(itemName));
   headers.push('Transfer #', 'Received By', 'Receive Date');
-  
+
   const tableStartRow = row;
-  
+
   // Set base column widths
   worksheet.getColumn(1).width = 16;
   worksheet.getColumn(2).width = 22;
-  
+
   // Set dynamic widths for item columns and custom items
   activeItems.forEach((item, idx) => {
     const colIndex = idx + 3; // +3 because of Branch # and Branch Name
     const minWidth = Math.max(item.label.length + 2, 12);
     worksheet.getColumn(colIndex).width = Math.min(minWidth, 18);
   });
-  
+
   // Set dynamic widths for custom item columns
   customItemOrder.forEach((itemName, idx) => {
     const colIndex = idx + 3 + activeItems.length;
     const minWidth = Math.max(itemName.length + 2, 12);
     worksheet.getColumn(colIndex).width = Math.min(minWidth, 25);
   });
-  
+
   // Set widths for Transfer #, Received By, Receive Date
   const transferColIndex = 3 + activeItems.length + customItemOrder.length;
   worksheet.getColumn(transferColIndex).width = 18; // Back to original width
   worksheet.getColumn(transferColIndex + 1).width = 20;
   worksheet.getColumn(transferColIndex + 2).width = 15;
-  
+
   // Write headers
   const headerRow = worksheet.getRow(row);
   headerRow.values = headers;
@@ -354,25 +346,25 @@ async function createMasterSheet(
     };
   });
   row++;
-  
+
   // Write data rows
   for (const branch of branches) {
     const rowValues: any[] = [branch.branchNumber, branch.branchName];
-    
+
     activeItems.forEach(item => {
       rowValues.push((branch as any)[item.field] || 0);
     });
-    
+
     customItemOrder.forEach(itemName => {
       rowValues.push(branch.customItems[itemName] || 0);
     });
-    
+
     const transferNumbersText = branch.transferNumbers.join('/');
     rowValues.push(transferNumbersText, '', ''); // Just transfer numbers, Received By, Receive Date
-    
+
     const dataRow = worksheet.getRow(row);
     dataRow.values = rowValues;
-    
+
     dataRow.eachCell((cell) => {
       cell.alignment = { horizontal: 'left', vertical: 'middle' };
       cell.border = {
@@ -382,12 +374,12 @@ async function createMasterSheet(
         right: { style: 'thin' }
       };
     });
-    
+
     row++;
   };
-  
+
   row++; // Empty row
-  
+
   // Totals
   const totalPalletSpaces = branches.reduce((sum, b) => sum + b.pallets, 0);
   const totalsValues = Array(headers.length).fill('');
@@ -396,7 +388,7 @@ async function createMasterSheet(
   if (palletIndex >= 0) {
     totalsValues[2 + palletIndex] = totalPalletSpaces;
   }
-  
+
   const totalsRow = worksheet.getRow(row);
   totalsRow.values = totalsValues;
   totalsRow.eachCell((cell) => {
@@ -408,9 +400,9 @@ async function createMasterSheet(
       right: { style: 'thin' }
     };
   });
-  
+
   const tableEndRow = row;
-  
+
   // Apply thick borders to table outline
   for (let r = tableStartRow; r <= tableEndRow; r++) {
     worksheet.getCell(r, 1).border = {
@@ -422,9 +414,9 @@ async function createMasterSheet(
       right: { style: 'medium' }
     };
   }
-  
+
   row += 2; // Empty rows
-  
+
   // Disclaimer
   worksheet.getCell(`A${row}`).value = 'DISCLAIMER:';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 9 };
@@ -440,7 +432,7 @@ async function createMasterSheet(
   row++;
   worksheet.getCell(`A${row}`).value = 'You are responsible for what you sign for, failing to note discrepancies will lead to a loss for the receiving branch.';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 8 };
-  
+
   // Set print settings
   worksheet.pageSetup = {
     orientation: 'landscape',
@@ -470,46 +462,48 @@ async function createBranchSheet(
 ) {
   const sheetName = `Br${branch.branchNumber} - Picked ${pickDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   const worksheet = workbook.addWorksheet(sheetName);
-  
+
   // Header section
   let row = 1;
-  worksheet.getCell(`A${row}`).value = `VAMAC CARMEL CHURCH - BR4 -> ${branch.branchName}`;
+  worksheet.getCell(`A${row}`).value = `BR4 -> ${branch.branchName}`;
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
-  // Ship Date on the same row, right side (merge F-H for space)
-  worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: '2-digit', day: '2-digit', year: '2-digit' })}`;
-  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
-  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
+  // Ship Date on the same row, right side (merge D-F)
+  worksheet.mergeCells(`D${row}:F${row}`);
+  worksheet.getCell(`D${row}`).value = `Ship Date: ${shipDate.toLocaleDateString('en-US', { weekday: 'long', month: '2-digit', day: '2-digit', year: '2-digit' })}`;
+  worksheet.getCell(`D${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`D${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
+  row++;
+
+  worksheet.getCell(`A${row}`).value = 'VAMAC CARMEL CHURCH';
+  worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.mergeCells(`D${row}:F${row}`);
+  worksheet.getCell(`D${row}`).value = 'Shipped By: Taylor';
+  worksheet.getCell(`D${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`D${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
 
   worksheet.getCell(`A${row}`).value = 'RUTHER GLEN, VA 23546';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
+  worksheet.mergeCells(`D${row}:F${row}`);
+  worksheet.getCell(`D${row}`).value = `Carrier: ${carrier}`;
+  worksheet.getCell(`D${row}`).font = { bold: true, size: 12 };
+  worksheet.getCell(`D${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
 
   worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
-  // Shipped By on the same row, right side
-  worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = `Carrier: ${carrier}`;
-  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
-  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
   row++;
 
   worksheet.getCell(`A${row}`).value = '804-321-3955';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   row++;
 
-  worksheet.getCell(`F${row}`).value = 'Shipped By: Taylor';
-  worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
-  worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
-  row++;
-  
   row++; // Empty row
-  
+
   // Headers
   const tableStartRow = row;
   const headerRow = worksheet.getRow(row);
-  headerRow.values = ['Item', 'Quantity'];
+  headerRow.values = ['Item', 'Qty Ordered', 'Qty Shipped'];
   headerRow.eachCell((cell) => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
@@ -522,17 +516,18 @@ async function createBranchSheet(
     };
   });
   row++;
-  
+
   // Set column widths
   worksheet.getColumn(1).width = 20;
   worksheet.getColumn(2).width = 12;
-  
+  worksheet.getColumn(3).width = 12;
+
   // Data rows - only items with quantities > 0
   activeItems.forEach(item => {
     const qty = (branch as any)[item.field];
     if (qty > 0) {
       const dataRow = worksheet.getRow(row);
-      dataRow.values = [item.label, qty];
+      dataRow.values = [item.label, qty, ''];
       dataRow.eachCell((cell) => {
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
         cell.border = {
@@ -545,12 +540,12 @@ async function createBranchSheet(
       row++;
     }
   });
-  
+
   customItemOrder.forEach(itemName => {
     const qty = branch.customItems[itemName];
     if (qty > 0) {
       const dataRow = worksheet.getRow(row);
-      dataRow.values = [itemName, qty];
+      dataRow.values = [itemName, qty, ''];
       dataRow.eachCell((cell) => {
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
         cell.border = {
@@ -563,17 +558,17 @@ async function createBranchSheet(
       row++;
     }
   });
-  
+
   const tableEndRow = row - 1;
-  
+
   // Apply thick borders to table outline
   for (let r = tableStartRow; r <= tableEndRow; r++) {
     worksheet.getCell(r, 1).border = {
       ...worksheet.getCell(r, 1).border,
       left: { style: 'medium' }
     };
-    worksheet.getCell(r, 2).border = {
-      ...worksheet.getCell(r, 2).border,
+    worksheet.getCell(r, 3).border = {
+      ...worksheet.getCell(r, 3).border,
       right: { style: 'medium' }
     };
   }
@@ -585,14 +580,18 @@ async function createBranchSheet(
     ...worksheet.getCell(tableEndRow, 2).border,
     bottom: { style: 'medium' }
   };
-  
+  worksheet.getCell(tableEndRow, 3).border = {
+    ...worksheet.getCell(tableEndRow, 3).border,
+    bottom: { style: 'medium' }
+  };
+
   // Transfer numbers with barcode and manual entry backup
   if (branch.transferNumbers.length > 0) {
     const transferNumbersText = branch.transferNumbers.join('/');
-    
+
     // Add spacing row to prevent overlap with table
     row++;
-    
+
     // Generate and add barcode for transfer numbers
     try {
       const barcodeBase64 = await generateBarcode(transferNumbersText);
@@ -602,18 +601,18 @@ async function createBranchSheet(
           base64: `data:image/png;base64,${barcodeBase64}`,
           extension: 'png',
         });
-        
+
         // Position barcode image
         worksheet.addImage(imageId, {
           tl: { col: 0, row: row - 1 }, // Column A, current row
           ext: { width: 180, height: 50 },
           editAs: 'oneCell'
         });
-        
+
         // Set row height to accommodate barcode
         worksheet.getRow(row).height = 50;
         row++;
-        
+
         // Add transfer number text below barcode for manual entry
         worksheet.getCell(`A${row}`).value = `Transfer #: ${transferNumbersText}`;
         worksheet.getCell(`A${row}`).font = { size: 10 };
@@ -632,7 +631,7 @@ async function createBranchSheet(
       row++;
     }
   }
-  
+
   // Notes section
   row += 2;
   worksheet.getCell(`A${row}`).value = 'Notes/Discrepancies:';
@@ -643,12 +642,12 @@ async function createBranchSheet(
   worksheet.getCell(`A${row}`).value = '_____________________________________________________________________';
   row++;
   worksheet.getCell(`A${row}`).value = '_____________________________________________________________________';
-  
+
   // Received By line
   row += 2;
   worksheet.getCell(`A${row}`).value = 'Received By: _____________________________';
   worksheet.getCell(`A${row}`).font = { size: 10 };
-  
+
   // Disclaimer at bottom
   row += 3;
   worksheet.getCell(`A${row}`).value = 'DISCLAIMER:';
@@ -665,7 +664,7 @@ async function createBranchSheet(
   row++;
   worksheet.getCell(`A${row}`).value = 'You are responsible for what you sign for, failing to note discrepancies will lead to a loss for the receiving branch.';
   worksheet.getCell(`A${row}`).font = { bold: true, size: 8 };
-  
+
   // Set print settings (portrait for branch sheets)
   worksheet.pageSetup = {
     orientation: 'portrait',

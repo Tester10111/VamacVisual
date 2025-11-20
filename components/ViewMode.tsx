@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Branch, BayAssignments } from '@/lib/api';
+import { Branch, BayAssignments, getPartialPallets, PartialPallet } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface ViewModeProps {
@@ -13,7 +13,19 @@ interface ViewModeProps {
 
 export default function ViewMode({ branches, bayAssignments, onExit, onRefresh }: ViewModeProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [partialPallets, setPartialPallets] = useState<PartialPallet[]>([]);
   const bayOrder = [5, 4, 3, 2, 1];
+
+  // Load partial pallets
+  const loadPartialPallets = async () => {
+    try {
+      const pallets = await getPartialPallets();
+      setPartialPallets(pallets || []);
+    } catch (error) {
+      console.error('Error loading partial pallets:', error);
+      setPartialPallets([]);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -24,7 +36,11 @@ export default function ViewMode({ branches, bayAssignments, onExit, onRefresh }
     const refreshTimer = setInterval(() => {
       toast.loading('Refreshing...', { duration: 1000 });
       onRefresh();
+      loadPartialPallets(); // Also refresh partial pallets
     }, 30000);
+
+    // Load partial pallets on mount
+    loadPartialPallets();
 
     return () => {
       clearInterval(timer);
@@ -118,23 +134,42 @@ export default function ViewMode({ branches, bayAssignments, onExit, onRefresh }
 
                 {bayBranches.length > 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center gap-4 px-5 pb-6">
-                    {bayBranches.map((branch, idx) => (
-                      <div
-                        key={idx}
-                        className="w-full rounded-2xl bg-gradient-to-r from-blue-600/90 via-blue-700 to-blue-900/90 px-6 py-6 text-center text-white shadow-lg transition-transform duration-200 animate-scaleIn"
-                        style={{ animationDelay: `${idx * 0.15}s` }}
-                      >
-                        <div className="text-[clamp(2.5rem,3.8vw,4.25rem)] font-extrabold tracking-tight leading-none mb-3">
-                          {branch.branchNumber}
+                    {bayBranches.map((branch, idx) => {
+                      // Check if this branch has an active partial pallet
+                      const hasPartialPallet = partialPallets.some(
+                        pallet => pallet.branchNumber === branch.branchNumber && pallet.status === 'OPEN'
+                      );
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className="w-full rounded-2xl bg-gradient-to-r from-blue-600/90 via-blue-700 to-blue-900/90 px-6 py-6 text-center text-white shadow-lg transition-transform duration-200 animate-scaleIn"
+                          style={{ animationDelay: `${idx * 0.15}s` }}
+                        >
+                          {/* Partial pallet indicator */}
+                          {hasPartialPallet && (
+                            <div className="flex justify-center mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse"></div>
+                                <span className="text-xs font-semibold text-emerald-200 tracking-wide uppercase">
+                                  Partial Pallet Active
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="text-[clamp(2.5rem,3.8vw,4.25rem)] font-extrabold tracking-tight leading-none mb-3">
+                            {branch.branchNumber}
+                          </div>
+                          <div className="text-lg md:text-xl font-medium">
+                            {branch.branchName}
+                          </div>
+                          <div className="text-xs uppercase tracking-wider text-blue-100/80 mt-2">
+                            Branch {branch.branchNumber}
+                          </div>
                         </div>
-                        <div className="text-lg md:text-xl font-medium">
-                          {branch.branchName}
-                        </div>
-                        <div className="text-xs uppercase tracking-wider text-blue-100/80 mt-2">
-                          Branch {branch.branchNumber}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="flex-1 flex items-center justify-center px-6 pb-6">

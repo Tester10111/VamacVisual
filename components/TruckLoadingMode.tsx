@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { verifyPinLocal, verifyPin, getTrucks, createTruck, getStagingArea, loadToTruck, getTruckLoads, clearStagingArea, updateTruckStatus, getDepartedTruckLoadsByDate, type Truck, type StagingItem, type TruckLoad } from '@/lib/api';
+import { verifyPinLocal, verifyPin, getTrucks, createTruck, getStagingArea, loadToTruck, getTruckLoads, clearStagingArea, updateTruckStatus, getDepartedTruckLoadsByDate, getPartialPallets, type Truck, type StagingItem, type TruckLoad, type PartialPallet } from '@/lib/api';
 import { dataManager } from '@/lib/dataManager';
 import { generateTruckExcel } from '@/lib/truckExcelGenerator';
 import { generateMasterSheetExcel } from '@/lib/masterSheetGenerator';
@@ -85,7 +85,7 @@ function SimpleLoadingScreen() {
       <div className="text-center max-w-2xl px-8">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white mb-6 mx-auto"></div>
         <p className="text-white text-xl mb-6">Loading Trucks and Staging Area...</p>
-        
+
         {/* Progress bar */}
         <div className="w-64 mx-auto mb-6">
           <div className="w-full bg-slate-800 rounded-full h-2 mb-2">
@@ -108,7 +108,7 @@ function SimpleLoadingScreen() {
             {loadingTips[currentTip]}
           </div>
         </div>
-        
+
         <div className="text-slate-300 text-sm">
           Fetching truck data and staging items...
         </div>
@@ -117,7 +117,7 @@ function SimpleLoadingScreen() {
   );
 }
 
-interface LoadQuantities extends StagingItem {}
+interface LoadQuantities extends StagingItem { }
 
 export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -140,6 +140,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
   const [masterSheetDate, setMasterSheetDate] = useState('');
   const [availableDepartedTrucks, setAvailableDepartedTrucks] = useState<Truck[]>([]);
   const [selectedTrucksForMaster, setSelectedTrucksForMaster] = useState<Set<number>>(new Set());
+  const [partialPallets, setPartialPallets] = useState<PartialPallet[]>([]);
 
   // Check if admin is cached (shared with AdminMode)
   useEffect(() => {
@@ -161,19 +162,21 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     } else {
       setIsLoading(true);
     }
-    
+
     try {
-      const [trucksData, stagingData] = await Promise.all([
+      const [trucksData, stagingData, partialPalletsData] = await Promise.all([
         getTrucks(),
-        getStagingArea()
+        getStagingArea(),
+        getPartialPallets()
       ]);
       // Filter to show only Active trucks in main view
       const activeTrucks = trucksData.filter(t => t.status === 'Active');
       setTrucks(activeTrucks);
       setStagingItems(stagingData);
+      setPartialPallets(partialPalletsData);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
         toast.error('Connection timeout. Please refresh the page and try again.');
       } else if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
@@ -183,7 +186,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
       } else {
         toast.error(`Failed to load data: ${errorMessage}`);
       }
-      
+
       console.error('Data loading error:', error);
     } finally {
       setIsLoading(false);
@@ -204,7 +207,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
         setPin('');
         return;
       }
-      
+
       // Then verify with server (consistent with AdminMode)
       const isValid = await verifyPin(pin);
       if (isValid) {
@@ -256,7 +259,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     }
 
     // Get selected items and set default quantities (max available)
-    const itemsToLoad = stagingItems.filter(item => 
+    const itemsToLoad = stagingItems.filter(item =>
       selectedItems.has(`${item.branchNumber}-${item.pickDate}`)
     ).map(item => ({ ...item })); // Clone items
 
@@ -401,19 +404,19 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
       // Filter for departed trucks from the last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
+
       const recentDeparted = allTrucks.filter(truck => {
         if (truck.status !== 'Departed') return false;
         const createDate = new Date(truck.createDate);
         return createDate >= thirtyDaysAgo;
       });
-      
+
       recentDeparted.sort((a, b) => {
         const dateA = new Date(a.createDate);
         const dateB = new Date(b.createDate);
         return dateB.getTime() - dateA.getTime(); // Most recent first
       });
-      
+
       setAvailableDepartedTrucks(recentDeparted);
       setSelectedTrucksForMaster(new Set());
       setShowMasterSheetModal(true);
@@ -424,7 +427,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
       setIsLoading(false);
     }
   };
-  
+
   const toggleTruckSelection = (truckID: number) => {
     const newSelection = new Set(selectedTrucksForMaster);
     if (newSelection.has(truckID)) {
@@ -440,32 +443,32 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
       toast.error('Please select at least one truck');
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       // Get loads from all selected trucks
       const allLoads: TruckLoad[] = [];
       for (const truckID of Array.from(selectedTrucksForMaster)) {
         const loads = await getTruckLoads(truckID);
         allLoads.push(...loads);
       }
-      
+
       if (allLoads.length === 0) {
         toast.error('No loads found in selected trucks');
         return;
       }
-      
+
       // Use the most recent truck's create date as the departed date
       const selectedTruckObjs = availableDepartedTrucks.filter(t => selectedTrucksForMaster.has(t.truckID));
       const mostRecentDate = selectedTruckObjs.reduce((latest, truck) => {
         const createDate = new Date(truck.createDate);
         return createDate > latest ? createDate : latest;
       }, new Date(0));
-      
+
       // Get carrier from the first selected truck (they should all have the same carrier)
       const defaultCarrier = selectedTruckObjs.length > 0 ? (selectedTruckObjs[0].carrier || 'STEFI') : 'STEFI';
-      
+
       generateMasterSheetExcel(allLoads, mostRecentDate, defaultCarrier);
       toast.success('Master Sheet exported successfully!');
       setShowMasterSheetModal(false);
@@ -502,10 +505,10 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
     // Parse date string as local date to prevent timezone shift
     const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
     const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
@@ -600,8 +603,8 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                   <span>📊</span> Export Excel
                 </button>
                 {selectedTruck.status === 'Active' && (
-                  <button 
-                    onClick={handleCloseTruck} 
+                  <button
+                    onClick={handleCloseTruck}
                     disabled={isLoading}
                     className="rounded-full border border-emerald-300/50 bg-emerald-500/20 px-5 py-2.5 text-sm font-semibold tracking-wide hover:bg-emerald-500/30 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
@@ -626,7 +629,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 {currentTruckLoads.length > 0 ? 'Current load manifest' : 'Awaiting staged items'}
               </p>
             </div>
-            
+
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
@@ -635,20 +638,34 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               <p className="text-blue-100/75 italic text-center py-8">No items loaded yet</p>
             ) : (
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                {currentTruckLoads.map((load, index) => (
-                  <div key={index} className="rounded-2xl border border-white/12 bg-white/10 px-5 py-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                      <div>
-                        <span className="text-lg font-semibold">Branch {load.branchNumber}</span>
-                        <span className="text-blue-100/70 ml-2">— {load.branchName}</span>
+                {currentTruckLoads.map((load, index) => {
+                  // Check if this branch has an active partial pallet
+                  const hasActivePartialPallet = partialPallets && partialPallets.length > 0 && partialPallets.some(p => 
+                    p && p.branchNumber === load.branchNumber && p.status === 'OPEN'
+                  );
+
+                  return (
+                    <div key={index} className="rounded-2xl border border-white/12 bg-white/10 px-5 py-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-lg font-semibold">Branch {load.branchNumber}</span>
+                          <span className="text-blue-100/70">— {load.branchName}</span>
+                          {/* Partial Pallet Indicator */}
+                          {hasActivePartialPallet && (
+                            <div className="flex items-center gap-1">
+                              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                              <span className="text-xs text-emerald-300 font-medium">Partial Pallet Open</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 bg-white/10 text-blue-100/80">
+                          Picked {formatDate(load.pickDate)}
+                        </span>
                       </div>
-                      <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 bg-white/10 text-blue-100/80">
-                        Picked {formatDate(load.pickDate)}
-                      </span>
+                      <p className="text-sm text-blue-100/85 leading-relaxed">{getItemSummary(load)}</p>
                     </div>
-                    <p className="text-sm text-blue-100/85 leading-relaxed">{getItemSummary(load)}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -684,7 +701,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 {departedTrucks.length > 0 ? 'Closed manifests available' : 'No departed trucks yet'}
               </p>
             </div>
-            
+
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
@@ -694,7 +711,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
             ) : (
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                 {departedTrucks.map((truck) => (
-                  <div 
+                  <div
                     key={truck.truckID}
                     className="rounded-2xl border border-white/12 bg-white/10 px-5 py-5"
                   >
@@ -707,8 +724,8 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         {truck.status}
                       </span>
                     </div>
-                    
-                    <button 
+
+                    <button
                       onClick={() => handleViewTruckDetails(truck)}
                       className="w-full rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-white/18 transition"
                     >
@@ -740,16 +757,16 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               ← Back to Menu
             </button>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <button 
-              onClick={() => setShowNewTruckModal(true)} 
+            <button
+              onClick={() => setShowNewTruckModal(true)}
               className="rounded-2xl border border-white/20 bg-blue-500/80 px-5 py-4 text-sm font-semibold tracking-wide shadow-[0_18px_40px_-18px_rgba(59,130,246,0.9)] hover:bg-blue-500 transition flex items-center justify-center gap-2"
             >
               <span>➕</span> Create New Truck
             </button>
-            <button 
-              onClick={handleRefresh} 
+            <button
+              onClick={handleRefresh}
               className="rounded-2xl border border-white/20 bg-white/10 px-5 py-4 text-sm font-medium tracking-wide hover:bg-white/18 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
@@ -760,22 +777,22 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               )}
               Refresh
             </button>
-            <button 
-              onClick={handleClearStagingArea} 
+            <button
+              onClick={handleClearStagingArea}
               className="rounded-2xl border border-red-300/60 bg-red-500/20 px-5 py-4 text-sm font-semibold tracking-wide hover:bg-red-500/30 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || stagingItems.length === 0}
             >
               <span>🗑️</span> Clear Staging
             </button>
-            <button 
-              onClick={handleViewDepartedTrucks} 
+            <button
+              onClick={handleViewDepartedTrucks}
               className="rounded-2xl border border-purple-300/60 bg-purple-600/25 px-5 py-4 text-sm font-semibold tracking-wide hover:bg-purple-600/35 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               <span>📋</span> Departed Trucks
             </button>
-            <button 
-              onClick={handleOpenMasterSheetModal} 
+            <button
+              onClick={handleOpenMasterSheetModal}
               className="rounded-2xl border border-emerald-300/60 bg-emerald-600/25 px-5 py-4 text-sm font-semibold tracking-wide hover:bg-emerald-600/35 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
@@ -793,7 +810,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 {selectedTruck ? `Loading into ${selectedTruck.truckName}` : 'Select a truck to start loading'}
               </p>
             </div>
-            
+
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
@@ -804,7 +821,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               <>
                 <div className="mb-4">
                   {selectedTruck && (
-                    <button 
+                    <button
                       onClick={handleInitiateLoad}
                       disabled={selectedItems.size === 0 || isLoading}
                       className="w-full rounded-full bg-blue-500/80 px-5 py-3 text-sm font-semibold tracking-wide shadow-[0_18px_40px_-18px_rgba(59,130,246,0.9)] hover:bg-blue-500 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -820,26 +837,37 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                     </button>
                   )}
                 </div>
-                
+
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                   {stagingItems.map((item) => {
                     const key = `${item.branchNumber}-${item.pickDate}`;
                     const isSelected = selectedItems.has(key);
                     
+                    // Check if this branch has an active partial pallet
+                    const hasActivePartialPallet = partialPallets && partialPallets.length > 0 && partialPallets.some(p => 
+                      p && p.branchNumber === item.branchNumber && p.status === 'OPEN'
+                    );
+
                     return (
-                      <div 
+                      <div
                         key={key}
                         onClick={() => handleSelectItem(key)}
-                        className={`rounded-2xl border cursor-pointer px-5 py-5 transition-all ${
-                          isSelected 
+                        className={`rounded-2xl border cursor-pointer px-5 py-5 transition-all ${isSelected
                             ? 'border-blue-400/70 bg-blue-500/25 shadow-[0_20px_60px_-45px_rgba(59,130,246,0.9)]'
                             : 'border-white/12 bg-white/10 hover:border-blue-300/60 hover:bg-blue-500/10'
-                        }`}
+                          }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                          <div>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-lg font-semibold text-white">Branch {item.branchNumber}</span>
-                            <span className="text-blue-100/70 ml-2">— {item.branchName}</span>
+                            <span className="text-blue-100/70">— {item.branchName}</span>
+                            {/* Partial Pallet Indicator */}
+                            {hasActivePartialPallet && (
+                              <div className="flex items-center gap-1">
+                                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                                <span className="text-xs text-emerald-300 font-medium">Partial Pallet Open</span>
+                              </div>
+                            )}
                           </div>
                           <span className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/20 bg-white/10 text-blue-100/80">
                             {formatDate(item.pickDate)}
@@ -860,7 +888,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               <h2 className="text-2xl font-semibold">🚚 Trucks ({trucks.length})</h2>
               <p className="text-xs uppercase tracking-wide text-blue-100/70">Only active trucks are shown</p>
             </div>
-            
+
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-200"></div>
@@ -871,15 +899,14 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {trucks.map((truck) => {
                   const isSelected = selectedTruck?.truckID === truck.truckID;
-                  
+
                   return (
-                    <div 
+                    <div
                       key={truck.truckID}
-                      className={`rounded-2xl border px-5 py-5 transition-all ${
-                        isSelected 
+                      className={`rounded-2xl border px-5 py-5 transition-all ${isSelected
                           ? 'border-blue-400/70 bg-blue-500/25 shadow-[0_20px_60px_-45px_rgba(59,130,246,0.9)]'
                           : 'border-white/12 bg-white/10'
-                      }`}
+                        }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                         <div>
@@ -890,19 +917,18 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           {truck.status}
                         </span>
                       </div>
-                      
+
                       <div className="flex flex-col sm:flex-row gap-2">
-                        <button 
+                        <button
                           onClick={() => setSelectedTruck(isSelected ? null : truck)}
-                          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition ${
-                            isSelected 
+                          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition ${isSelected
                               ? 'bg-blue-500 text-white shadow-[0_16px_30px_-18px_rgba(59,130,246,0.9)]'
                               : 'border border-white/20 bg-white/10 text-white hover:bg-white/18'
-                          }`}
+                            }`}
                         >
                           {isSelected ? '✓ Selected' : 'Select'}
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleViewTruckDetails(truck)}
                           className="flex-1 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold tracking-wide hover:bg-white/18 transition"
                         >
@@ -923,7 +949,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="w-full max-w-md rounded-3xl border border-white/12 bg-white/10 backdrop-blur-xl shadow-[0_40px_120px_-60px_rgba(37,99,235,0.85)] px-6 py-6 md:px-7 md:py-7 text-white animate-slideUp">
             <h2 className="text-[clamp(1.5rem,2.2vw,2rem)] font-semibold mb-3">Create New Truck</h2>
-            
+
             <div className="mb-5 space-y-2">
               <label className="block text-xs uppercase tracking-wide text-blue-100/70">
                 Truck Name <span className="text-blue-100/40">(optional)</span>
@@ -941,7 +967,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 </p>
               )}
             </div>
-            
+
             <div className="mb-5 space-y-2">
               <label className="block text-xs uppercase tracking-wide text-blue-100/70">
                 Carrier <span className="text-blue-100/40">(default: STEFI)</span>
@@ -954,9 +980,9 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 className="input-field w-full bg-white/10 border-white/25 text-white placeholder:text-blue-100/40 focus:border-blue-300/70 focus:bg-white/15"
               />
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-3">
-              <button 
+              <button
                 onClick={handleCreateTruck}
                 disabled={isLoading}
                 className="btn-primary flex-1 flex items-center justify-center gap-2 rounded-full py-3"
@@ -992,24 +1018,33 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
             <p className="text-sm sm:text-base text-blue-100/80 mb-4">
               Adjust quantities for each staged entry. Inputs default to the maximum available.
             </p>
-            
+
             <div className="space-y-4 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto mb-5 pr-1 sm:pr-2">
               {loadQuantities.map((item, index) => {
                 const originalItem = stagingItems.find(
                   si => si.branchNumber === item.branchNumber && si.pickDate === item.pickDate
                 );
-                
+
                 return (
                   <div key={`${item.branchNumber}-${item.pickDate}`} className="rounded-2xl border border-white/12 bg-white/10 px-4 sm:px-5 py-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                       <div>
-                        <h3 className="font-semibold text-base sm:text-lg text-white">
-                          Branch {item.branchNumber} - {item.branchName}
-                        </h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-base sm:text-lg text-white">
+                            Branch {item.branchNumber} - {item.branchName}
+                          </h3>
+                          {/* Partial Pallet Indicator */}
+                          {partialPallets && partialPallets.length > 0 && partialPallets.some(p => p && p.branchNumber === item.branchNumber && p.status === 'OPEN') && (
+                            <div className="flex items-center gap-1">
+                              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                              <span className="text-xs text-emerald-300 font-medium">Partial Pallet Open</span>
+                            </div>
+                          )}
+                        </div>
                         <p className="text-xs sm:text-sm text-blue-100/70">Picked: {formatDate(item.pickDate)}</p>
                       </div>
                     </div>
-                    
+
                     {/* Transfer Number Display */}
                     {item.transferNumber && (
                       <div className="mb-4">
@@ -1021,7 +1056,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {/* Basic items */}
                       {originalItem && originalItem.pallets > 0 && (
@@ -1040,7 +1075,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && originalItem.boxes > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1057,7 +1092,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && originalItem.rolls > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1092,7 +1127,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.waterHeaters ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1109,7 +1144,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.waterRights ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1126,7 +1161,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.boxTub ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1143,7 +1178,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.copperPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1160,7 +1195,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.plasticPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1177,7 +1212,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.galvPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1194,7 +1229,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.blackPipe ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1211,7 +1246,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.wood ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1228,7 +1263,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.galvStrut ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1245,7 +1280,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.im540Tank ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1262,7 +1297,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.im1250Tank ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1279,7 +1314,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                           />
                         </div>
                       )}
-                      
+
                       {originalItem && (originalItem.mailBox ?? 0) > 0 && (
                         <div>
                           <label className="block text-xs font-medium text-blue-100/70 mb-1 uppercase tracking-wide">
@@ -1297,7 +1332,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Custom items - display only */}
                     {originalItem && originalItem.custom && originalItem.custom.trim() && (
                       <div className="mt-3 pt-3 border-t border-gray-200">
@@ -1309,9 +1344,9 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 );
               })}
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-3 border-t pt-4">
-              <button 
+              <button
                 onClick={handleConfirmLoad}
                 disabled={isLoading}
                 className="btn-primary flex-1 flex items-center justify-center gap-2"
@@ -1328,9 +1363,9 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                   </>
                 )}
               </button>
-              <button 
-                onClick={() => { 
-                  setShowQuantityModal(false); 
+              <button
+                onClick={() => {
+                  setShowQuantityModal(false);
                   setLoadQuantities([]);
                 }}
                 className="btn-secondary flex-1"
@@ -1350,7 +1385,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
             <p className="text-sm text-emerald-100/80 mb-5">
               Select one or more departed trucks to generate a consolidated master sheet grouped by pick dates.
             </p>
-            
+
             <div className="mb-6 max-h-[50vh] overflow-y-auto pr-2">
               {availableDepartedTrucks.length === 0 ? (
                 <div className="text-center py-8 text-emerald-100/60">
@@ -1362,11 +1397,10 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                     <div
                       key={truck.truckID}
                       onClick={() => toggleTruckSelection(truck.truckID)}
-                      className={`rounded-xl border px-4 py-3 cursor-pointer transition ${
-                        selectedTrucksForMaster.has(truck.truckID)
+                      className={`rounded-xl border px-4 py-3 cursor-pointer transition ${selectedTrucksForMaster.has(truck.truckID)
                           ? 'border-emerald-400/60 bg-emerald-500/20'
                           : 'border-white/12 bg-white/5 hover:bg-white/10'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -1375,11 +1409,10 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                             Departed: {formatDate(truck.createDate)}
                           </div>
                         </div>
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-                          selectedTrucksForMaster.has(truck.truckID)
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${selectedTrucksForMaster.has(truck.truckID)
                             ? 'border-emerald-400 bg-emerald-400'
                             : 'border-white/30'
-                        }`}>
+                          }`}>
                           {selectedTrucksForMaster.has(truck.truckID) && (
                             <span className="text-white text-xs">✓</span>
                           )}
@@ -1390,7 +1423,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center justify-between mb-4 text-sm text-emerald-100/70">
               <span>{selectedTrucksForMaster.size} truck(s) selected</span>
               {selectedTrucksForMaster.size > 0 && (
@@ -1402,7 +1435,7 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                 </button>
               )}
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleExportMasterSheet}
@@ -1420,9 +1453,9 @@ export default function TruckLoadingMode({ onBack }: TruckLoadingModeProps) {
                   </>
                 )}
               </button>
-              <button 
-                onClick={() => { 
-                  setShowMasterSheetModal(false); 
+              <button
+                onClick={() => {
+                  setShowMasterSheetModal(false);
                   setSelectedTrucksForMaster(new Set());
                 }}
                 className="flex-1 rounded-full py-3 border border-white/20 bg-white/10 hover:bg-white/20 font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"

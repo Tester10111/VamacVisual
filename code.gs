@@ -100,6 +100,15 @@ function handleRequest(e) {
         const departDate = e.parameter.date;
         result = getDepartedTruckLoadsByDate(departDate);
         break;
+      case 'createPartialPallet':
+        result = createPartialPallet(e);
+        break;
+      case 'getPartialPallets':
+        result = getPartialPallets();
+        break;
+      case 'closePartialPallet':
+        result = closePartialPallet(e);
+        break;
       default:
         result = { success: false, error: 'Invalid action' };
     }
@@ -1208,5 +1217,174 @@ function debugStageRecords() {
   const result = getStageRecords('2025-11-04');
   Logger.log('Result for 2025-11-04: ' + JSON.stringify(result));
   Logger.log('Number of records found: ' + result.data.length);
+}
+
+// --- PARTIAL PALLETS API ---
+
+// Create a new partial pallet
+function createPartialPallet(e) {
+  const params = JSON.parse(e.parameter.data || '{}');
+  const branchNumber = params.branchNumber;
+  const branchName = params.branchName;
+  const createdBy = params.pickerName;
+  
+  if (!branchNumber || !createdBy) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Missing required fields' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('PartialPallets');
+    
+    if (!sheet) {
+      sheet = ss.insertSheet('PartialPallets');
+      sheet.appendRow(['id', 'branchNumber', 'branchName', 'createdBy', 'createdAt', 'status']);
+    }
+    
+    // Check if active partial pallet already exists
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const branchIdx = headers.indexOf('branchNumber');
+    const statusIdx = headers.indexOf('status');
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][branchIdx] == branchNumber && data[i][statusIdx] === 'OPEN') {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Partial pallet already exists for this branch' })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    const id = Utilities.getUuid();
+    const timestamp = new Date().toISOString();
+    
+    sheet.appendRow([id, branchNumber, branchName, createdBy, timestamp, 'OPEN']);
+    
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      data: { id, branchNumber, branchName, createdBy, createdAt: timestamp, status: 'OPEN' } 
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Get all active partial pallets
+function getPartialPallets() {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('PartialPallets');
+    
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: true, data: [] })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const activePallets = [];
+    
+    const idIdx = headers.indexOf('id');
+    const branchNumIdx = headers.indexOf('branchNumber');
+    const branchNameIdx = headers.indexOf('branchName');
+    const createdByIdx = headers.indexOf('createdBy');
+    const createdAtIdx = headers.indexOf('createdAt');
+    const statusIdx = headers.indexOf('status');
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][statusIdx] === 'OPEN') {
+        activePallets.push({
+          id: data[i][idIdx],
+          branchNumber: data[i][branchNumIdx],
+          branchName: data[i][branchNameIdx],
+          createdBy: data[i][createdByIdx],
+          createdAt: data[i][createdAtIdx],
+          status: 'OPEN'
+        });
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, data: activePallets })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Close a partial pallet and add 1 pallet to stage records
+function closePartialPallet(e) {
+  const params = JSON.parse(e.parameter.data || '{}');
+  const id = params.id;
+  const branchNumber = params.branchNumber;
+  const branchName = params.branchName;
+  const pickerName = params.pickerName;
+  
+  if (!id) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Missing ID' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('PartialPallets');
+    
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Table not found' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.indexOf('id');
+    const statusIdx = headers.indexOf('status');
+    
+    let found = false;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idIdx] == id) {
+        sheet.getRange(i + 1, statusIdx + 1).setValue('CLOSED');
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Partial pallet not found' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Add 1 pallet to stage records
+    const stageSheet = ss.getSheetByName('StageRecords');
+    if (stageSheet) {
+       const timestamp = new Date();
+       const timezone = 'America/New_York'; // Eastern Time
+       const dateStr = Utilities.formatDate(timestamp, timezone, 'yyyy-MM-dd');
+       
+       stageSheet.appendRow([
+         timestamp, 
+         0, // System ID for partial pallet closure
+         pickerName + ' (Partial Close)', 
+         branchNumber, 
+         branchName, 
+         1, // 1 pallet
+         0, // boxes
+         0, // rolls
+         dateStr,
+         // Advanced fields - all zeros
+         0,0,0,0,0,0,0,0,0,0,0,0,0, '', '' 
+       ]);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
 }
 

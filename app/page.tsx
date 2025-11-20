@@ -110,7 +110,7 @@ function SimpleLoadingScreen() {
         </div>
         
         <div className="text-blue-200 text-sm">
-          Build: 0.92
+          Build: 0.93
         </div>
       </div>
     </div>
