@@ -42,44 +42,6 @@ export interface Branch {
   carrier: string;
 }
 
-export interface Picker {
-  pickerID: number;
-  pickerName: string;
-}
-
-export interface StageRecord {
-  timestamp: Date | string;
-  pickerID: number;
-  pickerName: string;
-  branchNumber: number;
-  branchName: string;
-  pallets: number;
-  boxes: number;
-  rolls: number;
-  date: string;
-  // Advanced fields
-  fiberglass?: number;
-  waterHeaters?: number;
-  waterRights?: number;
-  boxTub?: number;
-  copperPipe?: number;
-  plasticPipe?: number;
-  galvPipe?: number;
-  blackPipe?: number;
-  wood?: number;
-  galvStrut?: number;
-  im540Tank?: number;
-  im1250Tank?: number;
-  mailBox?: number;
-  custom?: string; // Format: "Item1:Quantity1,Item2:Quantity2"
-  transferNumber?: string; // Transfer number for this branch on this date
-  rowIndex?: number; // The Google Sheets row index for deletion
-}
-
-export interface BayAssignments {
-  [bayNumber: number]: number[] | number | null;
-}
-
 export interface Truck {
   truckID: number;
   truckName: string;
@@ -89,7 +51,7 @@ export interface Truck {
   carrier: string;
 }
 
-export interface StagingItem {
+export interface LoadItem {
   branchNumber: number;
   branchName: string;
   pickDate: string;
@@ -113,19 +75,9 @@ export interface StagingItem {
   transferNumber?: string; // Transfer number for this branch on this date
 }
 
-export interface TruckLoad extends StagingItem {
+export interface TruckLoad extends LoadItem {
   truckID: number;
   loadedTimestamp: Date | string;
-  transferNumber?: string;
-}
-
-export interface PartialPallet {
-  id: string;
-  branchNumber: number;
-  branchName: string;
-  createdBy: string;
-  createdAt: string; // ISO string
-  status: 'OPEN' | 'CLOSED';
 }
 
 async function fetchFromAppsScript(action: string, params: Record<string, any> = {}, retryCount = 0) {
@@ -212,27 +164,12 @@ async function fetchFromAppsScript(action: string, params: Record<string, any> =
       const timeoutMsg = `Request timeout for action: ${action} (${timeoutDuration}ms)`;
       console.error(`⏰ [${requestId}] ${timeoutMsg}`);
 
-      // If this is a critical action and we haven't exhausted retries, try with fresh connection
-      if (retryCount < 1 && ['addStageRecord', 'updateStageRecordTransferNumber', 'deleteStageRecord'].includes(action)) {
-        console.log(`🔄 [${requestId}] Retrying critical action with fresh connection...`);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-        return fetchFromAppsScript(action, params, retryCount + 1);
-      }
-
       throw new Error('Request timed out. Please check your connection and try again.');
     }
 
     // Handle network errors
     if (errorName === 'TypeError' && errorMessage.includes('fetch')) {
       console.error(`🌐 [${requestId}] Network error for action: ${action}`, error);
-
-      // If connection might be restored and this is critical, retry once
-      if (retryCount < 1 && ['addStageRecord', 'updateStageRecordTransferNumber', 'deleteStageRecord'].includes(action)) {
-        console.log(`🔄 [${requestId}] Retrying critical action after network error...`);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5 seconds
-        return fetchFromAppsScript(action, params, retryCount + 1);
-      }
-
       throw new Error('Network connection error. Please check your internet connection.');
     }
 
@@ -269,35 +206,6 @@ export async function getVersion(): Promise<string> {
   return result.version || 'Unknown';
 }
 
-export async function getPickers(): Promise<Picker[]> {
-  const result = await fetchFromAppsScript('getPickers');
-  return result.data;
-}
-
-export async function getBayAssignments(): Promise<BayAssignments> {
-  const result = await fetchFromAppsScript('getBayAssignments');
-  return result.data;
-}
-
-export async function updateBayAssignments(assignments: BayAssignments): Promise<void> {
-  await fetchFromAppsScript('updateBayAssignments', { assignments });
-}
-
-export async function getStageRecords(date?: string): Promise<StageRecord[]> {
-  console.log('API: Fetching stage records for date:', date);
-  const result = await fetchFromAppsScript('getStageRecords', { date });
-  console.log('API: Received result:', result);
-  return result.data;
-}
-
-export async function addStageRecord(record: Omit<StageRecord, 'timestamp' | 'date'>): Promise<void> {
-  await fetchFromAppsScript('addStageRecord', { record });
-}
-
-export async function addPicker(picker: Picker): Promise<void> {
-  await fetchFromAppsScript('addPicker', { picker });
-}
-
 // Hard-coded PIN verification (client-side check before API call)
 export function verifyPinLocal(pin: string): boolean {
   // Hard-coded PIN: 423323
@@ -315,48 +223,6 @@ export async function verifyPin(pin: string): Promise<boolean> {
   return result.valid;
 }
 
-export async function getDailySummary(date?: string): Promise<any> {
-  // If no date provided, use current date in Eastern Time
-  let dateToUse = date;
-  if (!dateToUse) {
-    const now = new Date();
-    const easternDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    dateToUse = easternDate.toISOString().split('T')[0];
-  }
-  const result = await fetchFromAppsScript('getDailySummary', { date: dateToUse });
-  return result;
-}
-
-export async function clearBoard(): Promise<void> {
-  await fetchFromAppsScript('clearBoard');
-}
-
-export async function deleteStageRecord(rowIndex: number): Promise<void> {
-  await fetchFromAppsScript('deleteStageRecord', { rowIndex });
-}
-
-// Utility function to calculate ship date (2 business days ahead, skipping weekends)
-export function calculateShipDate(fromDate: Date = new Date()): Date {
-  const date = new Date(fromDate);
-  let daysToAdd = 2;
-
-  // Get day of week (0 = Sunday, 4 = Thursday, 5 = Friday)
-  const dayOfWeek = date.getDay();
-
-  // If Thursday (4), add 4 days to get to Monday
-  if (dayOfWeek === 4) {
-    daysToAdd = 4;
-  }
-  // If Friday (5), add 4 days to get to Tuesday
-  else if (dayOfWeek === 5) {
-    daysToAdd = 4;
-  }
-  // Otherwise just add 2 days
-
-  date.setDate(date.getDate() + daysToAdd);
-  return date;
-}
-
 // ===== TRUCK LOADING API FUNCTIONS =====
 
 export async function getTrucks(): Promise<Truck[]> {
@@ -369,22 +235,13 @@ export async function createTruck(truckName?: string, carrier?: string): Promise
   return result.data;
 }
 
-export async function getStagingArea(): Promise<StagingItem[]> {
-  const result = await fetchFromAppsScript('getStagingArea');
-  return result.data;
-}
-
-export async function loadToTruck(truckID: number, loads: StagingItem[]): Promise<void> {
+export async function loadToTruck(truckID: number, loads: LoadItem[]): Promise<void> {
   await fetchFromAppsScript('loadToTruck', { truckID, loads });
 }
 
 export async function getTruckLoads(truckID: number): Promise<TruckLoad[]> {
   const result = await fetchFromAppsScript('getTruckLoads', { truckID });
   return result.data;
-}
-
-export async function clearStagingArea(): Promise<void> {
-  await fetchFromAppsScript('clearStagingArea');
 }
 
 export async function updateTruckStatus(truckID: number, status: string): Promise<void> {
@@ -401,34 +258,3 @@ export async function getExistingTransferNumber(branchNumber: number, date: stri
   const result = await fetchFromAppsScript('getExistingTransferNumber', { branchNumber, date });
   return result.data;
 }
-
-// Update transfer number for a specific stage record
-export async function updateStageRecordTransferNumber(rowIndex: number, transferNumber: string): Promise<void> {
-  await fetchFromAppsScript('updateStageRecordTransferNumber', {
-    updateParams: JSON.stringify({ rowIndex, transferNumber })
-  });
-}
-
-// ===== PARTIAL PALLETS API FUNCTIONS =====
-
-// Create a new partial pallet
-export async function createPartialPallet(branchNumber: number, branchName: string, pickerName: string): Promise<PartialPallet> {
-  const result = await fetchFromAppsScript('createPartialPallet', {
-    data: JSON.stringify({ branchNumber, branchName, pickerName })
-  });
-  return result.data;
-}
-
-// Get all active partial pallets
-export async function getPartialPallets(): Promise<PartialPallet[]> {
-  const result = await fetchFromAppsScript('getPartialPallets');
-  return result.data || [];
-}
-
-// Close a partial pallet
-export async function closePartialPallet(id: string, branchNumber: number, branchName: string, pickerName: string): Promise<void> {
-  await fetchFromAppsScript('closePartialPallet', {
-    data: JSON.stringify({ id, branchNumber, branchName, pickerName })
-  });
-}
-

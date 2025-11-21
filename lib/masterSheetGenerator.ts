@@ -268,7 +268,7 @@ async function createMasterSheet(
   worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
   // Use merged cells for right side content to prevent overlap
   worksheet.mergeCells(`F${row}:H${row}`);
-  worksheet.getCell(`F${row}`).value = 'MR. SHEET';
+  worksheet.getCell(`F${row}`).value = 'MS. SHEET';
   worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
   worksheet.getCell(`F${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
   row++;
@@ -448,6 +448,12 @@ async function createMasterSheet(
       footer: 0.3
     }
   };
+
+  // Add Logo
+  // Place at the bottom right, aligned with the last few columns and same row as disclaimer
+  // headers.length gives us the total number of columns
+  const logoCol = Math.max(0, headers.length - 2);
+  await addLogoToSheet(workbook, worksheet, row, logoCol);
 }
 
 async function createBranchSheet(
@@ -677,4 +683,57 @@ async function createBranchSheet(
       footer: 0.3
     }
   };
+
+  // Add Logo
+  await addLogoToSheet(workbook, worksheet, row, 2); // Column 2 (C) is the rightmost column in branch sheet, aligned with disclaimer
 }
+
+// Helper to convert WebP to PNG (Excel doesn't support WebP)
+const convertWebPToPng = async (url: string): Promise<ArrayBuffer | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            blob.arrayBuffer().then(resolve);
+          } else {
+            resolve(null);
+          }
+        }, 'image/png');
+      } else {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
+// Helper to add logo to sheet
+const addLogoToSheet = async (workbook: ExcelJS.Workbook, worksheet: ExcelJS.Worksheet, row: number, col: number) => {
+  try {
+    const pngBuffer = await convertWebPToPng('/logo.webp');
+
+    if (pngBuffer) {
+      const imageId = workbook.addImage({
+        buffer: pngBuffer,
+        extension: 'png',
+      });
+
+      worksheet.addImage(imageId, {
+        tl: { col: col, row: row },
+        ext: { width: 150, height: 150 },
+        editAs: 'oneCell'
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to add logo to sheet:', error);
+  }
+};

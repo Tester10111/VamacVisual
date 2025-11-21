@@ -15,85 +15,19 @@ Sample Data:
 7 | Hanover | [Address TBD] | [Phone TBD] | STEFI
 
 
-Sheet 2: "Pickers"
-Columns:
-- A: PickerID (e.g., 1001, 1002)
-- B: PickerName (e.g., "Taylor", "John Smith")
-
-Sample Data:
-1001 | Taylor
-1002 | John Smith
-
-
-Sheet 3: "BayAssignments"
-Columns:
-- A: BayNumber (1-5)
-- B: BranchNumbers (comma-separated list of branch numbers assigned to this bay, or empty if no assignment)
-  Example: "5,6" means both Branch 5 and Branch 6 are assigned to this bay
-- C: LastUpdated (timestamp)
-
-Sample Data:
-1 | 5,6 | 2025-11-05 10:30:00
-2 | 7 | 2025-11-05 10:30:00
-3 | | 2025-11-05 10:30:00
-4 | | 
-5 | |
-
-
-Sheet 4: "StageRecords"
-Columns:
-- A: Timestamp (date and time)
-- B: PickerID
-- C: PickerName
-- D: BranchNumber
-- E: BranchName
-- F: Pallets (number)
-- G: Boxes (number)
-- H: Rolls (number)
-- I: Date (date only for filtering)
-- J: Fiberglass (number) - Advanced field
-- K: WaterHeaters (number) - Advanced field
-- L: WaterRights (number) - Advanced field
-- M: BoxTub (number) - Advanced field
-- N: CopperPipe (number) - Advanced field
-- O: PlasticPipe (number) - Advanced field
-- P: GALVPipe (number) - Advanced field
-- Q: BlackPipe (number) - Advanced field
-- R: Wood (number) - Advanced field
-- S: GalvSTRUT (number) - Advanced field
-- T: IM540TANK (number) - Advanced field
-- U: IM1250TANK (number) - Advanced field
-- V: MailBox (number) - Advanced field
-- W: Custom (text) - Custom items and quantities as comma-separated list
-  Format: "Item1:Quantity1,Item2:Quantity2,Item3:Quantity3"
-  Example: "Special Pipe:5,Extra Boxes:10"
-  Empty if no custom items
-- X: TransferNumber (text) - Transfer number for this branch on this date
-  Example: "T1232322"
-  Set when first staging a branch for the day, auto-filled for subsequent staging
-
-Sample Data:
-2025-11-05 08:30:00 | 1001 | Taylor | 5 | Petersburg | 3 | 10 | 2 | 2025-11-05 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | "Special Pipe:5" | T1232322
-
-Note: Advanced fields (J-V) are optional. Set to 0 if not used.
-Custom field (W) is optional. Leave empty if no custom items.
-TransferNumber (X) should be set when first staging a branch for the day.
-
-
-Sheet 5: "Config"
+Sheet 2: "Config"
 Columns:
 - A: Key
 - B: Value
 
 Sample Data:
-AdminPIN | 423323
 CompanyName | VAMAC CARMEL CHURCH - BR4
 CompanyAddress | 23323 BUSINESS CTR CT, RUTHER GLEN, VA 23546
 CompanyPhone | 804-321-3955
-Version | 0.6.7.0
+Version | 0.7.0.0
 
 
-Sheet 6: "Trucks"
+Sheet 3: "Trucks"
 Columns:
 - A: TruckID (unique number, sequential starting from 1)
 - B: TruckName (e.g., "11/05 Truck #1" or custom name)
@@ -106,12 +40,12 @@ Sample Data:
 1 | 11/05 Truck #1 | 2025-11-05 | 2025-11-05 08:00:00 | Active | STEFI
 
 
-Sheet 7: "TruckLoads"
+Sheet 4: "TruckLoads"
 Columns:
 - A: TruckID (references Trucks sheet)
 - B: BranchNumber
 - C: BranchName
-- D: PickDate (date when items were originally staged)
+- D: PickDate (date when items were loaded)
 - E: Pallets (number)
 - F: Boxes (number)
 - G: Rolls (number)
@@ -134,9 +68,6 @@ Columns:
 
 Sample Data:
 1 | 5 | Petersburg | 2025-11-05 | 3 | 10 | 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | "Special Pipe:5" | 2025-11-05 14:30:00 | "T1232322"
-
-Note: TruckLoads records items moved from staging area to trucks.
-The staging area shows: StageRecords (grouped by branch+pickDate) MINUS TruckLoads (grouped by branch+pickDate)
 
 
 
