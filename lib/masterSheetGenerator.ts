@@ -365,8 +365,13 @@ async function createMasterSheet(
     const dataRow = worksheet.getRow(row);
     dataRow.values = rowValues;
 
+    // Apply alternating row shading
+    const isEvenRow = (row - tableStartRow) % 2 === 1;
+    const rowColor = isEvenRow ? 'FFF2F2F2' : 'FFFFFFFF'; // Light gray for even rows, white for odd
+
     dataRow.eachCell((cell) => {
       cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowColor } };
       cell.border = {
         top: { style: 'thin' },
         left: { style: 'thin' },

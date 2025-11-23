@@ -95,8 +95,6 @@ export async function generateTruckExcel(
     let row = 1;
     worksheet.getCell(`A${row}`).value = 'VAMAC CARMEL CHURCH - BR4';
     worksheet.getCell(`A${row}`).font = { bold: true, size: 12 };
-    worksheet.getCell(`F${row}`).value = 'BRANCH 4 STEFI TRANSFERS';
-    worksheet.getCell(`F${row}`).font = { bold: true, size: 12 };
     row++;
     
     worksheet.getCell(`A${row}`).value = '23323 BUSINESS CTR CT';
@@ -177,8 +175,14 @@ export async function generateTruckExcel(
       
       const dataRow = worksheet.getRow(row);
       dataRow.values = rowValues;
+
+      // Apply alternating row shading
+      const isEvenRow = (row - tableStartRow) % 2 === 1;
+      const rowColor = isEvenRow ? 'FFF2F2F2' : 'FFFFFFFF'; // Light gray for even rows, white for odd
+
       dataRow.eachCell((cell) => {
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowColor } };
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
@@ -244,6 +248,11 @@ export async function generateTruckExcel(
     row++;
     worksheet.getCell(`A${row}`).value = '**you are responsible for what you sign for, failing to note discrepancies will lead to a loss for the receiving branch.**';
     worksheet.getCell(`A${row}`).font = { bold: true, size: 8 };
+
+    // Add Logo
+    // Place at the bottom right, aligned with the last few columns and same row as disclaimer
+    const logoCol = Math.max(0, headers.length - 2);
+    await addLogoToSheet(workbook, worksheet, row, logoCol);
     
     // Set print settings
     worksheet.pageSetup = {
@@ -273,3 +282,53 @@ export async function generateTruckExcel(
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Helper to convert WebP to PNG (Excel doesn't support WebP)
+const convertWebPToPng = async (url: string): Promise<ArrayBuffer | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            blob.arrayBuffer().then(resolve);
+          } else {
+            resolve(null);
+          }
+        }, 'image/png');
+      } else {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
+// Helper to add logo to sheet
+const addLogoToSheet = async (workbook: ExcelJS.Workbook, worksheet: ExcelJS.Worksheet, row: number, col: number) => {
+  try {
+    const pngBuffer = await convertWebPToPng('/logo.webp');
+
+    if (pngBuffer) {
+      const imageId = workbook.addImage({
+        buffer: pngBuffer,
+        extension: 'png',
+      });
+
+      worksheet.addImage(imageId, {
+        tl: { col: col, row: row },
+        ext: { width: 200, height: 200 },
+        editAs: 'oneCell'
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to add logo to sheet:', error);
+  }
+};
